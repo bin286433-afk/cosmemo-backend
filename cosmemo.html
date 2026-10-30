@@ -1,0 +1,2076 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>코스메모 (CosMemo) · 인터랙티브 시연 웹앱</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #EBF0EB;
+      color: #1C2822;
+    }
+    .phone-frame {
+      width: 100%;
+      max-width: 412px;
+      min-height: 780px;
+      max-height: 860px;
+      background: #F9FBF9;
+      border-radius: 38px;
+      box-shadow: 0 20px 50px rgba(24, 52, 38, 0.16), 0 0 0 8px #ffffff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .phone-scroll {
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #C4D6C8 transparent;
+    }
+    .phone-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .phone-scroll::-webkit-scrollbar-thumb {
+      background-color: #C4D6C8;
+      border-radius: 9999px;
+    }
+    .btn-primary {
+      background-color: #214E3A;
+      color: #FFFFFF;
+      transition: all 0.15s ease;
+    }
+    .btn-primary:hover {
+      background-color: #193D2D;
+    }
+    .btn-secondary {
+      background-color: #FFFFFF;
+      color: #214E3A;
+      border: 1px solid #CFDCD3;
+      transition: all 0.15s ease;
+    }
+    .btn-secondary:hover {
+      background-color: #F0F5F1;
+    }
+    .chip-active {
+      background-color: #214E3A;
+      color: #FFFFFF;
+    }
+    .chip-inactive {
+      background-color: #EDF3EE;
+      color: #41584B;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6">
+
+  <!-- 좌측: 시연 발표자 컨트롤러 & 화면 시안(A~H) 바로가기 패널 -->
+  <aside class="w-full max-w-md lg:w-96 bg-white rounded-3xl p-5 shadow-md border border-[#DCE6DE] flex flex-col gap-4">
+    <div class="flex items-center justify-between border-b border-[#E6EFE8] pb-3">
+      <div>
+        <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E3F1E8] text-[#214E3A]">COSMETIC + MEMO</span>
+        <h1 class="text-lg font-bold text-[#1C2822] mt-1">코스메모 발표 시연 컨트롤러</h1>
+      </div>
+      <div id="api-status-badge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#EDF3EE] text-[#214E3A]">
+        로컬/내장 연동됨
+      </div>
+    </div>
+
+    <p class="text-xs text-[#52665A] leading-relaxed">
+      오른쪽 스마트폰 화면을 직접 클릭하거나, 아래 <strong>화면 설계도(A~H) 바로가기 버튼</strong>을 눌러 모든 사용자 여정과 예외 상태를 실시간으로 시연할 수 있습니다.
+    </p>
+
+    <!-- 화면 그룹 A~H 빠른 점프 -->
+    <div class="space-y-3 text-xs">
+      <div>
+        <div class="font-bold text-[#214E3A] mb-1.5">A · 시작 · 계정 만들기</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="navigate('AUTH-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">AUTH-01 웰컴</button>
+          <button type="button" onclick="navigate('AUTH-02')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">AUTH-02 로그인</button>
+          <button type="button" onclick="navigate('AUTH-03')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">AUTH-03 회원가입</button>
+          <button type="button" onclick="navigate('AUTH-05')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">AUTH-05 피부프로필</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-bold text-[#214E3A] mb-1.5">B · 홈 · 내 화장대 · 제품 관리</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="navigate('HOME-01')" class="px-2.5 py-1.5 rounded-lg bg-[#E3F1E8] hover:bg-[#CBE4D4] text-[#214E3A] font-bold">HOME-01 홈</button>
+          <button type="button" onclick="navigate('VAN-01')" class="px-2.5 py-1.5 rounded-lg bg-[#E3F1E8] hover:bg-[#CBE4D4] text-[#214E3A] font-bold">VAN-01 내 화장대</button>
+          <button type="button" onclick="openProductDetail('OWN-101')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">PROD-01 상세(크림)</button>
+          <button type="button" onclick="openProductDetail('OWN-103')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">PROD-04 미개봉(세럼)</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-bold text-[#214E3A] mb-1.5">C · 영수증에서 내 화장대로</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="navigate('REG-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">REG-01 영수증 촬영</button>
+          <button type="button" onclick="navigate('REG-04')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">REG-04 인식결과 검토</button>
+          <button type="button" onclick="navigate('REG-06')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">REG-06 직접 등록</button>
+          <button type="button" onclick="navigate('REG-07')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">REG-07 중복안내/완료</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-bold text-[#214E3A] mb-1.5">D · 개인 평가 · 사용 기한 · 알림</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="openEvaluation('OWN-101')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">REV-01 평가 작성</button>
+          <button type="button" onclick="navigate('REV-02')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">REV-02 평가 타임라인</button>
+          <button type="button" onclick="navigate('EXP-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">EXP-01 기한 관리</button>
+          <button type="button" onclick="navigate('NOTI-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">NOTI-01 알림함</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-bold text-[#214E3A] mb-1.5">E · 비우기 · 분리배출 · 다음 구매</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="openDisposal('OWN-101')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">DIS-01~04 분리배출</button>
+          <button type="button" onclick="navigate('DIS-03')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">DIS-03 공병 수거처</button>
+          <button type="button" onclick="navigate('ARC-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">ARC-01 지난제품 보관함</button>
+          <button type="button" onclick="navigate('BUY-01')" class="px-2.5 py-1.5 rounded-lg bg-[#E3F1E8] hover:bg-[#CBE4D4] text-[#214E3A] font-bold">BUY-01~02 구매 전 체크</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-bold text-[#214E3A] mb-1.5">F & G · 추천 · 계절케어 · 커뮤니티 · 마이</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="navigate('REC-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">REC-01 내기록 추천</button>
+          <button type="button" onclick="navigate('SEA-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">SEA-01 계절 케어</button>
+          <button type="button" onclick="navigate('COM-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">COM-01~03 커뮤니티</button>
+          <button type="button" onclick="navigate('MY-01')" class="px-2.5 py-1.5 rounded-lg bg-[#F2F7F4] hover:bg-[#DCECE1] text-[#1C2822] font-medium">MY-01~03 마이페이지</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="font-bold text-[#9A3412] mb-1.5">H · 공통 · 예외 상태 (복구 시연)</div>
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" onclick="navigate('STATE-01')" class="px-2.5 py-1.5 rounded-lg bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] font-medium">STATE-01 빈 화장대</button>
+          <button type="button" onclick="navigate('STATE-03')" class="px-2.5 py-1.5 rounded-lg bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] font-medium">STATE-03 영수증 인식실패</button>
+          <button type="button" onclick="navigate('STATE-05')" class="px-2.5 py-1.5 rounded-lg bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] font-medium">STATE-05 오프라인 캐시</button>
+          <button type="button" onclick="navigate('STATE-08')" class="px-2.5 py-1.5 rounded-lg bg-[#FEF3C7] hover:bg-[#FDE68A] text-[#92400E] font-medium">STATE-08 세션만료 초안보존</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pt-2 border-t border-[#E6EFE8] flex items-center justify-between text-xs">
+      <span class="text-[#52665A]">시연 데이터 초기화</span>
+      <button type="button" onclick="resetDemoState()" class="px-3 py-1.5 rounded-lg bg-[#F2F4F3] hover:bg-[#E2E8E4] text-[#1C2822] font-semibold">처음 상태로 리셋</button>
+    </div>
+  </aside>
+
+  <!-- 우측: 실제 코스메모 모바일 앱 시연 프레임 -->
+  <div class="phone-frame">
+    <!-- iOS 스타일 상태바 -->
+    <div class="px-6 pt-3 pb-2 flex items-center justify-between text-xs font-bold text-[#1C2822] bg-[#F9FBF9] select-none">
+      <span>9:41</span>
+      <span id="current-screen-pill" class="px-2 py-0.5 rounded-full bg-[#E3F1E8] text-[#214E3A] text-[11px] font-semibold">HOME-01 · /home</span>
+      <span>5G · 100%</span>
+    </div>
+
+    <!-- 토스트 알림 배너 -->
+    <div id="toast-box" class="hidden mx-4 mb-2 px-4 py-2.5 rounded-2xl bg-[#214E3A] text-white text-xs font-medium shadow-lg flex items-center justify-between">
+      <span id="toast-text">저장되었어요.</span>
+      <button type="button" onclick="hideToast()" class="ml-2 text-white/80 hover:text-white font-bold">✕</button>
+    </div>
+
+    <!-- 메인 스크롤 컨텐츠 영역 -->
+    <main id="app-viewport" class="phone-scroll px-5 pb-6 pt-1"></main>
+
+    <!-- 하단 4탭 네비게이션 바 (홈 / 내 화장대 / 구매 전 체크 / 마이) -->
+    <nav id="bottom-nav" class="bg-white border-t border-[#E2ECE4] px-3 py-2.5 grid grid-cols-4 gap-1 text-center select-none">
+      <button type="button" onclick="navigate('HOME-01')" id="nav-home" class="flex flex-col items-center gap-0.5 text-xs font-bold text-[#214E3A]">
+        <span class="text-base">⌂</span>
+        <span>홈</span>
+      </button>
+      <button type="button" onclick="navigate('VAN-01')" id="nav-vanity" class="flex flex-col items-center gap-0.5 text-xs font-medium text-[#687C70]">
+        <span class="text-base">▤</span>
+        <span>내 화장대</span>
+      </button>
+      <button type="button" onclick="navigate('BUY-01')" id="nav-precheck" class="flex flex-col items-center gap-0.5 text-xs font-medium text-[#687C70]">
+        <span class="text-base">⌕</span>
+        <span>구매 전 체크</span>
+      </button>
+      <button type="button" onclick="navigate('MY-01')" id="nav-my" class="flex flex-col items-center gap-0.5 text-xs font-medium text-[#687C70]">
+        <span class="text-base">☺</span>
+        <span>마이</span>
+      </button>
+    </nav>
+  </div>
+
+  <script>
+    const INITIAL_STATE = {
+      currentScreen: 'HOME-01',
+      selectedProductCode: 'OWN-101',
+      vanityCategory: 'all',
+      vanityStatus: 'all',
+      vanityIngredient: '',
+      vanityQuery: '',
+      deadlineTab: 'within30',
+      notiCategory: '전체',
+      precheckQuery: '진정 토너',
+      communityTab: 'all',
+      selectedPostCode: 'P-01',
+      user: {
+        code: 'USER-01',
+        email: 'jiyun@example.com',
+        nickname: '지윤',
+        skin_type: '복합성',
+        skin_concerns: ['건조함', '민감함'],
+        notify_expiry_enabled: true,
+        notify_expiry_days: [30, 7],
+        notify_time: '오전 09:00',
+        notify_seasonal: true,
+        notify_community: false,
+        notify_evaluation: true,
+        marketing_agreed: false
+      },
+      products: [
+        {
+          code: 'OWN-101',
+          catalog_code: 'CAT-01',
+          brand: '라운드리프',
+          name: '수분 장벽 크림',
+          category: '스킨케어',
+          volume: '50 ml',
+          main_ingredients: ['판테놀', '세라마이드 NP'],
+          status: 'in_use',
+          purchase_date: '2026.05.10',
+          opened_date: '2026.05.12',
+          printed_expiry_date: '2027.04.30',
+          pao_months: 6,
+          calculated_deadline: '2026.11.12',
+          deadline_basis: '2026.05.12 + PAO 6개월 (더 이른 날짜 적용)',
+          d_day: 13,
+          deadline_badge: '11.12까지 · D-13',
+          remaining_percent: 35,
+          purchase_store: '올리브영 강남점',
+          purchase_price: 18000,
+          receipt_code: 'R-008',
+          memo: '저녁 루틴에 사용. 마지막 사용량을 확인했어요.'
+        },
+        {
+          code: 'OWN-102',
+          catalog_code: 'CAT-02',
+          brand: '모닝듀',
+          name: '진정 토너',
+          category: '스킨케어',
+          volume: '200 ml',
+          main_ingredients: ['병풀추출물', '판테놀'],
+          status: 'in_use',
+          purchase_date: '2026.02.25',
+          opened_date: '2026.03.01',
+          printed_expiry_date: '2027.08.30',
+          pao_months: 12,
+          calculated_deadline: '2027.03.01',
+          deadline_basis: '2026.03.01 + PAO 12개월',
+          d_day: 122,
+          deadline_badge: '2027.03.01까지',
+          remaining_percent: 60,
+          purchase_store: '보태닉 스토어',
+          purchase_price: 15000,
+          receipt_code: 'R-003',
+          memo: '아침저녁 스킨케어 첫 단계로 사용 중.'
+        },
+        {
+          code: 'OWN-103',
+          catalog_code: 'CAT-03',
+          brand: '라운드리프',
+          name: '판테놀 세럼',
+          category: '스킨케어',
+          volume: '30 ml',
+          main_ingredients: ['판테놀', '베타인'],
+          status: 'unopened',
+          purchase_date: '2026.10.29',
+          opened_date: null,
+          printed_expiry_date: '2027.08.31',
+          pao_months: 12,
+          calculated_deadline: '2027.08.31',
+          deadline_basis: '개봉 전 인쇄 사용 기한 기준',
+          d_day: 305,
+          deadline_badge: '미개봉 · 개봉일 미등록 (2027.08.31까지)',
+          remaining_percent: 100,
+          purchase_store: '보태닉 스토어',
+          purchase_price: 22000,
+          receipt_code: 'R-031',
+          memo: '세일 기간에 미리 구매해 둔 세럼.'
+        },
+        {
+          code: 'OWN-104',
+          catalog_code: 'CAT-04',
+          brand: '누드블룸',
+          name: '소프트 립 틴트',
+          category: '색조',
+          volume: '4 g',
+          main_ingredients: ['토코페롤', '스쿠알란'],
+          status: 'expired',
+          purchase_date: '2026.04.15',
+          opened_date: '2026.04.20',
+          printed_expiry_date: '2027.04.15',
+          pao_months: 6,
+          calculated_deadline: '2026.10.20',
+          deadline_basis: '2026.04.20 + PAO 6개월',
+          d_day: -10,
+          deadline_badge: '10.20 기한 지남 · 사용 중단 안내',
+          remaining_percent: 20,
+          purchase_store: '올리브영 명동점',
+          purchase_price: 13000,
+          receipt_code: 'R-002',
+          memo: '색상은 예쁘지만 개봉 후 6개월이 지나 사용 중단.'
+        },
+        {
+          code: 'OWN-105',
+          catalog_code: 'CAT-05',
+          brand: '메종드보',
+          name: '우디 가든',
+          category: '향수',
+          volume: '30 ml',
+          main_ingredients: ['에탄올', '향료'],
+          status: 'in_use',
+          purchase_date: '2026.01.05',
+          opened_date: '2026.01.10',
+          printed_expiry_date: '2028.12.31',
+          pao_months: 24,
+          calculated_deadline: '2028.01.10',
+          deadline_basis: '2026.01.10 + PAO 24개월',
+          d_day: 437,
+          deadline_badge: '2028.01.10까지',
+          remaining_percent: 80,
+          purchase_store: '시코르 강남역점',
+          purchase_price: 58000,
+          receipt_code: 'R-001',
+          memo: '가을·겨울에 잘 어울리는 우디 향수.'
+        },
+        {
+          code: 'OWN-106',
+          catalog_code: 'CAT-06',
+          brand: '데일리선',
+          name: '라이트 선크림',
+          category: '스킨케어',
+          volume: '50 ml',
+          main_ingredients: ['징크옥사이드', '나이아신아마이드'],
+          status: 'in_use',
+          purchase_date: '2026.07.01',
+          opened_date: '2026.07.05',
+          printed_expiry_date: null,
+          pao_months: null,
+          calculated_deadline: null,
+          deadline_basis: '기한 확인 필요 · PAO 미등록',
+          d_day: null,
+          deadline_badge: '기한 확인 필요 · PAO 미등록',
+          remaining_percent: 50,
+          purchase_store: '온라인몰',
+          purchase_price: 16000,
+          receipt_code: null,
+          memo: '단상자를 버려서 PAO 표기를 확인해야 함.'
+        },
+        {
+          code: 'OWN-098',
+          catalog_code: null,
+          brand: '그린더마',
+          name: '시카 진정 젤',
+          category: '스킨케어',
+          volume: '100 ml',
+          main_ingredients: ['병풀추출물', '에탄올'],
+          status: 'archived',
+          archive_reason: '피부에 맞지 않아요',
+          ended_date: '2026.08.15',
+          remaining_percent: 70,
+          rating_summary: '2.0 · 맞지 않아요 · 따가웠어요',
+          memo: '바른 직후 볼 쪽이 따가워 사용 중단.'
+        },
+        {
+          code: 'OWN-099',
+          catalog_code: null,
+          brand: '퓨어포레',
+          name: '소프트 클렌징 밤',
+          category: '스킨케어',
+          volume: '100 ml',
+          main_ingredients: ['호호바씨오일', '판테놀'],
+          status: 'archived',
+          archive_reason: '다 썼어요',
+          ended_date: '2026.09.28',
+          remaining_percent: 0,
+          rating_summary: '5.0 · 잘 맞아요 · 재구매 의향 있음',
+          memo: '세정력이 순하고 눈 시림이 없어 끝까지 다 씀.'
+        }
+      ],
+      evaluations: {
+        'OWN-101': [
+          {
+            code: 'EVAL-101',
+            date: '2026.10.20',
+            label: '최근 · 수정',
+            rating: 4.0,
+            skin_fit: '잘 맞아요',
+            reactions: ['촉촉해요', '편안해요'],
+            repurchase_intent: '네, 있어요',
+            memo: '저녁에 바르기 좋았어요. 건조함이 덜 느껴져요.'
+          },
+          {
+            code: 'EVAL-100',
+            date: '2026.06.02',
+            label: '이전 평가',
+            rating: 3.0,
+            skin_fit: '보통',
+            reactions: ['촉촉해요'],
+            repurchase_intent: '고민 중이에요',
+            memo: '아직 사용 초기라 조금 더 써보려고 해요.'
+          }
+        ],
+        'OWN-102': [
+          {
+            code: 'EVAL-102',
+            date: '2026.10.15',
+            label: '최근',
+            rating: 5.0,
+            skin_fit: '잘 맞아요',
+            reactions: ['촉촉해요', '편안해요'],
+            repurchase_intent: '네, 있어요',
+            memo: '10.15 평가에서 재구매 의향을 남겼어요. 속건조를 잘 잡아줘요.'
+          }
+        ]
+      },
+      notifications: [
+        {
+          code: 'N-01',
+          category: '사용 기한',
+          time: '오늘 오전 9:00',
+          title: '수분 장벽 크림, 13일 남았어요',
+          body: '내 기록의 적용 기한은 11.12예요. 개봉일과 남은 양을 확인해요.',
+          action_label: '제품 상세 보기 →',
+          target_screen: 'PROD-01',
+          owned_code: 'OWN-101',
+          unread: true
+        },
+        {
+          code: 'N-02',
+          category: '사용 기한',
+          time: '오늘 오전 9:00',
+          title: '소프트 립 틴트 기한이 지났어요',
+          body: '10.20 기한이 지났어요. 사용을 중단하고 분리배출을 확인해 주세요.',
+          action_label: '제품과 폐기 안내 보기 →',
+          target_screen: 'DIS-01',
+          owned_code: 'OWN-104',
+          unread: true
+        },
+        {
+          code: 'N-03',
+          category: '계절 안내',
+          time: '어제 오후 6:00',
+          title: '건조한 계절, 내 루틴을 살펴봐요',
+          body: '건조함 관심 프로필과 보유 성분을 기준으로 안내를 준비했어요.',
+          action_label: '가을 케어 안내 보기 →',
+          target_screen: 'SEA-01',
+          owned_code: 'OWN-101',
+          unread: true
+        },
+        {
+          code: 'N-04',
+          category: '평가 기록',
+          time: '10.20',
+          title: '라이트 선크림은 어땠나요?',
+          body: '사용 경험을 나만의 기록으로 남겨요.',
+          action_label: '평가 작성하기 →',
+          target_screen: 'REV-01',
+          owned_code: 'OWN-106',
+          unread: false
+        }
+      ],
+      posts: [
+        {
+          code: 'P-01',
+          type: '후기',
+          title: '수분 장벽 크림, 저녁 루틴에 좋았어요',
+          body: '저녁에 바르기 편했던 크림이에요. 마지막까지 쓴 뒤 본체와 뚜껑의 재질을 따로 확인했어요. 제 경험이니 참고만 해 주세요.',
+          author: '지윤',
+          date: '2026.10.30 10:20',
+          quote: '저녁에 바르기 좋았어요.',
+          product_name: '라운드리프 · 수분 장벽 크림 (50 ml)',
+          likes: 3,
+          comments: [
+            { author: '초록기록', date: '10.30 10:40', body: '분리배출은 지역 기준도 확인해야겠네요. 기록 공유 감사해요!' },
+            { author: '지윤', date: '10.30 10:55', body: '맞아요. 저도 거주지 안내를 먼저 확인했어요.' }
+          ]
+        },
+        {
+          code: 'P-02',
+          type: '질문',
+          title: '펌프가 분리되지 않을 때는 어떻게 하나요?',
+          body: '본체는 유리인데 펌프 재질을 모르겠어요. 스프링이 들어있는 펌프는 일반쓰레기로 버리면 될까요?',
+          author: '수분충전',
+          date: '10.30 09:10',
+          quote: null,
+          product_name: null,
+          likes: 5,
+          comments: [
+            { author: '에코뷰티', date: '10.30 09:25', body: '네! 금속 스프링이 섞인 펌프 헤드는 분리해서 일반쓰레기로 배출하시면 돼요.' }
+          ]
+        },
+        {
+          code: 'P-03',
+          type: '추천',
+          title: '새 제품 사기 전 화장대부터 확인해요',
+          body: '비슷한 토너가 있다는 걸 기록 덕분에 알았어요. 세일 때 충동구매를 막아줘서 좋네요.',
+          author: '차분한루틴',
+          date: '10.29 18:30',
+          quote: null,
+          product_name: '모닝듀 · 진정 토너 (200 ml)',
+          likes: 8,
+          comments: []
+        }
+      ]
+    };
+
+    let state = JSON.parse(JSON.stringify(INITIAL_STATE));
+
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      const txt = document.getElementById('toast-text');
+      txt.textContent = msg;
+      box.classList.remove('hidden');
+      setTimeout(() => {
+        box.classList.add('hidden');
+      }, 3200);
+    }
+
+    function hideToast() {
+      document.getElementById('toast-box').classList.add('hidden');
+    }
+
+    function resetDemoState() {
+      state = JSON.parse(JSON.stringify(INITIAL_STATE));
+      showToast('시연 데이터가 초기 상태(2026.10.30 기준)로 리셋되었습니다.');
+      render();
+    }
+
+    function navigate(screenId) {
+      state.currentScreen = screenId;
+      render();
+      const vp = document.getElementById('app-viewport');
+      if (vp) vp.scrollTop = 0;
+    }
+
+    function openProductDetail(code) {
+      state.selectedProductCode = code;
+      const p = state.products.find(x => x.code === code);
+      if (p && p.status === 'unopened') {
+        navigate('PROD-04');
+      } else {
+        navigate('PROD-01');
+      }
+    }
+
+    function openEvaluation(code) {
+      state.selectedProductCode = code;
+      navigate('REV-01');
+    }
+
+    function openDisposal(code) {
+      state.selectedProductCode = code;
+      navigate('DIS-01');
+    }
+
+    function getActiveProducts() {
+      return state.products.filter(p => p.status !== 'archived');
+    }
+
+    function getArchivedProducts() {
+      return state.products.filter(p => p.status === 'archived');
+    }
+
+    function getSelectedProduct() {
+      return state.products.find(p => p.code === state.selectedProductCode) || state.products[0];
+    }
+
+    function updateNavHighlight() {
+      const map = {
+        'HOME-01': 'nav-home',
+        'REC-01': 'nav-home',
+        'SEA-01': 'nav-home',
+        'COM-01': 'nav-home',
+        'COM-02': 'nav-home',
+        'COM-03': 'nav-home',
+        'VAN-01': 'nav-vanity',
+        'PROD-01': 'nav-vanity',
+        'PROD-02': 'nav-vanity',
+        'PROD-03': 'nav-vanity',
+        'PROD-04': 'nav-vanity',
+        'EXP-01': 'nav-vanity',
+        'BUY-01': 'nav-precheck',
+        'BUY-02': 'nav-precheck',
+        'MY-01': 'nav-my',
+        'MY-02': 'nav-my',
+        'MY-03': 'nav-my'
+      };
+      const activeId = map[state.currentScreen] || 'nav-home';
+      ['nav-home', 'nav-vanity', 'nav-precheck', 'nav-my'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === activeId) {
+          el.className = 'flex flex-col items-center gap-0.5 text-xs font-bold text-[#214E3A]';
+        } else {
+          el.className = 'flex flex-col items-center gap-0.5 text-xs font-medium text-[#687C70]';
+        }
+      });
+    }
+
+    // --- 화면별 액션 핸들러 ---
+    function handleOpenUnopenedProduct(code) {
+      const p = state.products.find(x => x.code === code);
+      if (!p) return;
+      const dateInput = document.getElementById('open-date-input');
+      const openedDate = dateInput ? dateInput.value.replace(/-/g, '.') : '2026.10.30';
+      p.status = 'in_use';
+      p.opened_date = openedDate;
+      p.calculated_deadline = '2027.08.31';
+      p.deadline_basis = '인쇄 사용 기한 (2027.08.31) 적용 (개봉일+PAO 2027.10.30보다 더 이른 날짜)';
+      p.deadline_badge = '2027.08.31까지';
+      showToast('개봉일이 저장되었어요! 더 이른 날짜(2027.08.31)로 기한이 설정되었습니다.');
+      openProductDetail(code);
+    }
+
+    function handleSaveProductEdit(code) {
+      const p = state.products.find(x => x.code === code);
+      if (!p) return;
+      const rem = document.getElementById('edit-remaining');
+      const memo = document.getElementById('edit-memo');
+      if (rem) p.remaining_percent = parseInt(rem.value, 10) || p.remaining_percent;
+      if (memo) p.memo = memo.value;
+      showToast('제품 정보 수정 사항이 저장되었습니다.');
+      openProductDetail(code);
+    }
+
+    function handleSaveEvaluation(code) {
+      const p = state.products.find(x => x.code === code);
+      if (!p) return;
+      const ratingEl = document.getElementById('eval-rating');
+      const fitEl = document.getElementById('eval-fit');
+      const intentEl = document.getElementById('eval-intent');
+      const memoEl = document.getElementById('eval-memo');
+      const rating = ratingEl ? parseFloat(ratingEl.value) : 4.5;
+      const fit = fitEl ? fitEl.value : '잘 맞아요';
+      const intent = intentEl ? intentEl.value : '네, 있어요';
+      const memo = memoEl ? memoEl.value : '저녁에 바르기 좋았어요.';
+
+      if (!state.evaluations[code]) state.evaluations[code] = [];
+      state.evaluations[code].unshift({
+        code: 'EVAL-' + (105 + state.evaluations[code].length),
+        date: '2026.10.30',
+        label: '방금 작성 · 비공개',
+        rating: rating,
+        skin_fit: fit,
+        reactions: ['촉촉해요', '편안해요'],
+        repurchase_intent: intent,
+        memo: memo
+      });
+      showToast('이 평가는 나만 볼 수 있도록 비공개로 저장되었어요.');
+      navigate('REV-02');
+    }
+
+    function handleCompleteDisposal(code) {
+      const p = state.products.find(x => x.code === code);
+      if (p) {
+        p.status = 'archived';
+        p.archive_reason = '다 썼어요';
+        p.ended_date = '2026.10.30';
+        p.remaining_percent = 0;
+        p.rating_summary = '4.0 · 잘 맞아요 · 재구매 의향 있음';
+      }
+      showToast('분리배출 완료! 삭제되지 않고 지난 제품 보관함으로 이동했어요.');
+      navigate('DIS-04');
+    }
+
+    function handleManualRegister() {
+      const brand = (document.getElementById('reg-brand')?.value || '라운드리프').trim();
+      const name = (document.getElementById('reg-name')?.value || '수분 진정 앰플').trim();
+      const cat = document.getElementById('reg-category')?.value || '스킨케어';
+      const vol = document.getElementById('reg-volume')?.value || '50 ml';
+      const newCode = 'OWN-' + (100 + state.products.length + 1);
+      state.products.unshift({
+        code: newCode,
+        catalog_code: 'CAT-NEW',
+        brand: brand,
+        name: name,
+        category: cat,
+        volume: vol,
+        main_ingredients: ['판테놀', '히알루론산'],
+        status: 'in_use',
+        purchase_date: '2026.10.30',
+        opened_date: '2026.10.30',
+        printed_expiry_date: '2027.10.30',
+        pao_months: 12,
+        calculated_deadline: '2027.10.30',
+        deadline_basis: '2026.10.30 + PAO 12개월',
+        d_day: 365,
+        deadline_badge: '2027.10.30까지',
+        remaining_percent: 100,
+        purchase_store: '직접 등록',
+        purchase_price: 24000,
+        receipt_code: null,
+        memo: '새로 등록한 화장품'
+      });
+      state.selectedProductCode = newCode;
+      showToast(`${brand} ${name} 제품이 내 화장대에 추가되었어요!`);
+      navigate('VAN-01');
+    }
+
+    function handleConfirmReceiptSave() {
+      showToast('영수증(R-031)의 화장품 2개가 내 화장대에 반영되었습니다!');
+      navigate('REG-08');
+    }
+
+    function handleMarkAllNotificationsRead() {
+      state.notifications.forEach(n => { n.unread = false; });
+      showToast('모든 알림을 읽음으로 표시했어요.');
+      render();
+    }
+
+    function handleCreateCommunityPost() {
+      const title = document.getElementById('com-title')?.value || '수분 장벽 크림, 저녁 루틴에 좋았어요';
+      const body = document.getElementById('com-body')?.value || '저녁에 바르기 편했던 크림이에요. 본체와 뚜껑 재질을 따로 확인해 배출했어요.';
+      const type = document.getElementById('com-type')?.value || '후기';
+      const newCode = 'P-0' + (state.posts.length + 1);
+      state.posts.unshift({
+        code: newCode,
+        type: type,
+        title: title,
+        body: body,
+        author: state.user.nickname,
+        date: '2026.10.30 방금 전',
+        quote: '저녁에 바르기 좋았어요.',
+        product_name: '라운드리프 · 수분 장벽 크림 (50 ml)',
+        likes: 1,
+        comments: []
+      });
+      state.selectedPostCode = newCode;
+      showToast('선택한 공개 범위만 커뮤니티에 게시되었어요. (원본 평가는 비공개 유지)');
+      navigate('COM-02');
+    }
+
+    function handleAddComment() {
+      const input = document.getElementById('comment-input');
+      if (!input || !input.value.trim()) return;
+      const post = state.posts.find(p => p.code === state.selectedPostCode) || state.posts[0];
+      post.comments.push({
+        author: state.user.nickname,
+        date: '10.30 방금',
+        body: input.value.trim()
+      });
+      showToast('댓글이 등록되었어요.');
+      render();
+    }
+
+    function render() {
+      updateNavHighlight();
+      const pill = document.getElementById('current-screen-pill');
+      const vp = document.getElementById('app-viewport');
+      const s = state.currentScreen;
+      pill.textContent = s;
+
+      const active = getActiveProducts();
+      const archived = getArchivedProducts();
+      const p = getSelectedProduct();
+
+      // A · 시작 · 계정 만들기
+      if (s === 'AUTH-01') {
+        vp.innerHTML = `
+          <div class="py-4 space-y-5">
+            <div>
+              <p class="text-xs font-bold tracking-widest text-[#214E3A]">COSMETIC + MEMO</p>
+              <h2 class="text-2xl font-bold mt-1 leading-snug">나의 화장품을,<br/>끝까지 아끼는 기록.</h2>
+              <p class="text-xs text-[#5A6E62] mt-2">새로 사기 전에는 기억을, 다 쓴 뒤에는 더 나은 마무리를.</p>
+            </div>
+            <div class="bg-[#E6EFE9] rounded-3xl p-6 flex flex-col items-center justify-center text-center space-y-3 border border-[#D2E2D7]">
+              <div class="w-20 h-20 rounded-2xl bg-white shadow-sm flex items-center justify-center text-3xl">🧴🌱</div>
+              <p class="text-xs font-semibold text-[#214E3A]">A LITTLE CARE, EVERY DAY</p>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-white p-3 rounded-2xl border border-[#E2ECE4]"><div class="font-bold text-[#214E3A]">01</div><div class="mt-1 font-medium">간편한 등록</div></div>
+              <div class="bg-white p-3 rounded-2xl border border-[#E2ECE4]"><div class="font-bold text-[#214E3A]">02</div><div class="mt-1 font-medium">나만의 평가</div></div>
+              <div class="bg-white p-3 rounded-2xl border border-[#E2ECE4]"><div class="font-bold text-[#214E3A]">03</div><div class="mt-1 font-medium">올바른 비우기</div></div>
+            </div>
+            <div class="space-y-2.5 pt-2">
+              <button type="button" onclick="navigate('AUTH-03')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">내 화장대 시작하기</button>
+              <button type="button" onclick="navigate('AUTH-02')" class="w-full py-3.5 rounded-2xl btn-secondary font-bold text-sm">이미 계정이 있어요 · 로그인</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'AUTH-02') {
+        vp.innerHTML = `
+          <div class="py-3 space-y-4">
+            <button type="button" onclick="navigate('AUTH-01')" class="text-xs font-semibold text-[#214E3A]">‹ 이메일 로그인</button>
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl">
+              <div class="text-lg font-bold">쌓아 둔 기록은 그대로,<br/>오늘의 루틴은 가볍게.</div>
+            </div>
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="font-semibold block mb-1">이메일</label>
+                <input type="email" value="jiyun@example.com" class="w-full px-3.5 py-2.5 rounded-xl border border-[#CFDCD3] bg-white" />
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">비밀번호</label>
+                <input type="password" value="cosmemo1234" class="w-full px-3.5 py-2.5 rounded-xl border border-[#CFDCD3] bg-white" />
+              </div>
+            </div>
+            <div class="bg-[#EDF4EF] p-3.5 rounded-2xl text-xs text-[#41584B]">
+              <strong>안전하게 연결해요</strong><br/>로그인 후 내 제품과 비공개 평가를 불러와요. 다른 사람에게 내 평가가 자동 공개되지 않아요.
+            </div>
+            <div class="space-y-2 pt-2">
+              <button type="button" onclick="showToast('지윤님으로 로그인되었습니다.'); navigate('HOME-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">로그인</button>
+              <button type="button" onclick="navigate('AUTH-03')" class="w-full py-3 rounded-2xl btn-secondary font-semibold text-xs">계정 만들기</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'AUTH-03') {
+        vp.innerHTML = `
+          <div class="py-3 space-y-4 text-xs">
+            <button type="button" onclick="navigate('AUTH-01')" class="font-semibold text-[#214E3A]">‹ 회원가입 (01 / 계정 정보)</button>
+            <h2 class="text-lg font-bold">기록을 시작할 나만의 계정</h2>
+            <div class="space-y-2.5">
+              <div>
+                <label class="font-semibold block mb-1">이메일 *</label>
+                <input type="email" value="jiyun@example.com" class="w-full px-3 py-2.5 rounded-xl border border-[#CFDCD3] bg-white" />
+                <p class="text-[11px] text-[#214E3A] mt-1">✓ 사용 가능한 이메일이에요.</p>
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">비밀번호 * (영문·숫자 조합 8자 이상)</label>
+                <input type="password" value="cosmemo1234" class="w-full px-3 py-2.5 rounded-xl border border-[#CFDCD3] bg-white" />
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">닉네임 * (2~12자)</label>
+                <input type="text" value="지윤" class="w-full px-3 py-2.5 rounded-xl border border-[#CFDCD3] bg-white" />
+              </div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <div class="font-bold">꼭 필요한 동의만 받아요</div>
+              <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>[필수] 이용약관에 동의해요</span></label>
+              <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>[필수] 개인정보 수집·이용에 동의해요</span></label>
+              <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>[필수] 만 14세 이상이에요</span></label>
+              <label class="flex items-center gap-2"><input type="checkbox" /> <span>[선택] 마케팅 소식을 받아볼게요 (동의하지 않아도 핵심 기능 이용 가능)</span></label>
+            </div>
+            <button type="button" onclick="navigate('AUTH-05')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">동의하고 가입하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'AUTH-05') {
+        vp.innerHTML = `
+          <div class="py-3 space-y-4 text-xs">
+            <button type="button" onclick="navigate('AUTH-03')" class="font-semibold text-[#214E3A]">‹ 피부 프로필 (02 / 선택 정보)</button>
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl">
+              <h2 class="text-base font-bold">나의 피부를 가장 잘 아는 건 나니까.</h2>
+              <p class="text-[#41584B] mt-1">사용하면서 바뀌는 느낌도 함께 기록해요.</p>
+            </div>
+            <div>
+              <div class="font-bold mb-2">피부 타입 · 하나 선택</div>
+              <div class="flex flex-wrap gap-2">
+                ${['건성', '지성', '복합성', '중성', '잘 모르겠어요'].map(t => `
+                  <button type="button" onclick="state.user.skin_type='${t}'; render();" class="px-3 py-1.5 rounded-full font-semibold ${state.user.skin_type === t ? 'chip-active' : 'chip-inactive'}">${t}</button>
+                `).join('')}
+              </div>
+            </div>
+            <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <div class="font-bold">관심 고민 · 여러 개 선택</div>
+              <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>건조함</span></label>
+              <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>민감함</span></label>
+              <label class="flex items-center gap-2"><input type="checkbox" /> <span>번들거림</span></label>
+              <label class="flex items-center gap-2"><input type="checkbox" /> <span>피부결</span></label>
+            </div>
+            <div class="bg-[#EDF4EF] p-3 rounded-2xl text-[11px] text-[#41584B]">
+              <strong>의학적 진단이 아니에요</strong> · 직접 선택한 정보는 개인 기록을 정리하는 데만 사용해요.
+            </div>
+            <div class="space-y-2">
+              <button type="button" onclick="showToast('피부 프로필이 저장되었어요.'); navigate('HOME-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">프로필 저장하고 계속</button>
+              <button type="button" onclick="navigate('HOME-01')" class="w-full py-3 rounded-2xl btn-secondary font-semibold">지금은 건너뛰기</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // B · 홈 (HOME-01)
+      if (s === 'HOME-01') {
+        const unreadCount = state.notifications.filter(n => n.unread).length;
+        const expiredList = active.filter(x => x.status === 'expired' || (x.d_day !== null && x.d_day < 0));
+        const within30List = active.filter(x => x.status === 'in_use' && x.d_day !== null && x.d_day >= 0 && x.d_day <= 30);
+
+        vp.innerHTML = `
+          <div class="space-y-4 py-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-[11px] text-[#5A6E62]">2026.10.30 금요일 · 예시 기준일</p>
+                <h2 class="text-lg font-bold mt-0.5">${state.user.nickname}님,<br/>오늘도 나를 아끼는 기록.</h2>
+              </div>
+              <button type="button" onclick="navigate('NOTI-01')" class="relative p-2.5 rounded-2xl bg-white border border-[#E2ECE4]">
+                <span>🔔</span>
+                ${unreadCount > 0 ? `<span class="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#B91C1C] text-white text-[10px] font-bold">${unreadCount}</span>` : ''}
+              </button>
+            </div>
+
+            <!-- 3개 요약 숫자 카드 -->
+            <div class="grid grid-cols-3 gap-2.5">
+              <button type="button" onclick="navigate('VAN-01')" class="bg-white p-3.5 rounded-2xl border border-[#DCE6DE] text-left">
+                <div class="text-xl font-bold text-[#214E3A]">${active.length}</div>
+                <div class="text-[11px] text-[#5A6E62] mt-1">내 화장대</div>
+              </button>
+              <button type="button" onclick="state.deadlineTab='within30'; navigate('EXP-01')" class="bg-white p-3.5 rounded-2xl border border-[#DCE6DE] text-left">
+                <div class="text-xl font-bold text-[#214E3A]">${within30List.length}</div>
+                <div class="text-[11px] text-[#5A6E62] mt-1">30일 이내</div>
+              </button>
+              <button type="button" onclick="state.deadlineTab='expired'; navigate('EXP-01')" class="bg-white p-3.5 rounded-2xl border border-[#DCE6DE] text-left">
+                <div class="text-xl font-bold text-[#B91C1C]">${expiredList.length}</div>
+                <div class="text-[11px] text-[#5A6E62] mt-1">기한 초과</div>
+              </button>
+            </div>
+
+            <button type="button" onclick="navigate('REG-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm shadow-sm">
+              + 새 화장품 기록하기
+            </button>
+
+            <!-- 먼저 확인할 제품 (기한 초과 알림) -->
+            ${expiredList.length > 0 ? `
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-bold">먼저 확인할 제품</span>
+                  <button type="button" onclick="state.deadlineTab='expired'; navigate('EXP-01')" class="text-[#214E3A] font-semibold">기한 관리 →</button>
+                </div>
+                <div onclick="openProductDetail('${expiredList[0].code}')" class="cursor-pointer bg-[#FDF2F2] border border-[#F5C2C2] p-3.5 rounded-2xl text-xs">
+                  <div class="font-bold text-[#991B1B]">${expiredList[0].name} · 기한이 지났어요</div>
+                  <p class="text-[#7F1D1D] mt-1">10.20 기한 경과 · 사용을 중단하고 폐기 방법을 확인해요. 제품 상세에서 기록할 수 있어요.</p>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 기한이 가까운 나의 루틴 -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold">기한이 가까운 나의 루틴</span>
+                <button type="button" onclick="navigate('VAN-01')" class="text-[#214E3A] font-semibold">전체 보기 →</button>
+              </div>
+              ${active.slice(0, 2).map(item => `
+                <div onclick="openProductDetail('${item.code}')" class="cursor-pointer bg-white p-3.5 rounded-2xl border border-[#E2ECE4] flex items-center justify-between hover:border-[#214E3A]">
+                  <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-xl bg-[#EAF2EC] flex items-center justify-center text-lg">🧴</div>
+                    <div>
+                      <div class="text-[11px] text-[#5A6E62]">${item.brand} · ${item.volume} · ${item.category}</div>
+                      <div class="text-sm font-bold">${item.name}</div>
+                      <div class="text-[11px] text-[#214E3A] font-semibold mt-0.5">사용 중 · ${item.remaining_percent}% 남음 · ${item.deadline_badge}</div>
+                    </div>
+                  </div>
+                  <span class="text-xs text-[#687C70]">›</span>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- 계절 노트 -->
+            <div class="bg-[#E6F0E9] p-4 rounded-2xl border border-[#CFE0D4] space-y-1.5">
+              <span class="text-[10px] font-bold tracking-wider text-[#214E3A]">SEASONAL NOTE · 가을</span>
+              <h3 class="text-sm font-bold">건조해지는 계절, 새 제품보다 내 기록부터.</h3>
+              <p class="text-xs text-[#41584B]">건조함 관심 프로필과 보유 제품 성분을 기준으로 정리했어요.</p>
+              <button type="button" onclick="navigate('SEA-01')" class="text-xs font-bold text-[#214E3A] pt-1">계절 케어 안내 읽기 →</button>
+            </div>
+
+            <!-- 하단 2개 서브 버튼 -->
+            <div class="grid grid-cols-2 gap-2.5 text-xs">
+              <button type="button" onclick="navigate('REC-01')" class="py-3 rounded-2xl bg-white border border-[#DCE6DE] font-bold text-[#214E3A]">내 기록 기반 추천 →</button>
+              <button type="button" onclick="navigate('COM-01')" class="py-3 rounded-2xl bg-white border border-[#DCE6DE] font-bold text-[#214E3A]">커뮤니티 둘러보기 →</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // B · 내 화장대 (VAN-01 / VAN-02)
+      if (s === 'VAN-01') {
+        const filtered = active.filter(item => {
+          if (state.vanityCategory !== 'all' && item.category !== state.vanityCategory) return false;
+          if (state.vanityStatus !== 'all' && item.status !== state.vanityStatus) return false;
+          if (state.vanityIngredient && !(item.main_ingredients || []).some(ing => ing.includes(state.vanityIngredient))) return false;
+          if (state.vanityQuery) {
+            const q = state.vanityQuery.toLowerCase();
+            const matchName = item.name.toLowerCase().includes(q) || item.brand.toLowerCase().includes(q);
+            const matchIng = (item.main_ingredients || []).some(i => i.toLowerCase().includes(q));
+            if (!matchName && !matchIng) return false;
+          }
+          return true;
+        });
+
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-lg font-bold">내 화장대</h2>
+                <p class="text-xs text-[#5A6E62]">활성 ${active.length}개 · 보관함 ${archived.length}개</p>
+              </div>
+              <button type="button" onclick="navigate('EXP-01')" class="px-2.5 py-1.5 rounded-xl bg-[#E8F2EB] text-[#214E3A] text-xs font-bold">기한 관리</button>
+            </div>
+
+            <!-- 검색창 -->
+            <div>
+              <input type="text" value="${state.vanityQuery}" oninput="state.vanityQuery=this.value; render();" placeholder="제품명, 브랜드 또는 성분 검색 (예: 판테놀)" class="w-full px-3.5 py-2.5 rounded-2xl border border-[#CFDCD3] bg-white text-xs" />
+            </div>
+
+            <!-- 카테고리 필터 칩 -->
+            <div class="flex flex-wrap gap-1.5 text-xs">
+              ${['all', '스킨케어', '색조', '향수'].map(cat => `
+                <button type="button" onclick="state.vanityCategory='${cat}'; render();" class="px-3 py-1.5 rounded-full font-semibold ${state.vanityCategory === cat ? 'chip-active' : 'chip-inactive'}">
+                  ${cat === 'all' ? `전체 ${active.length}` : `${cat} ${active.filter(x => x.category === cat).length}`}
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- 상태 & 성분 필터 칩 (VAN-02 통합) -->
+            <div class="flex flex-wrap gap-1.5 text-[11px]">
+              ${[
+                { k: 'all', label: '상태 전체' },
+                { k: 'unopened', label: '미개봉' },
+                { k: 'in_use', label: '사용 중' },
+                { k: 'expired', label: '기한 초과' }
+              ].map(st => `
+                <button type="button" onclick="state.vanityStatus='${st.k}'; render();" class="px-2.5 py-1 rounded-lg font-medium ${state.vanityStatus === st.k ? 'bg-[#214E3A] text-white' : 'bg-white border border-[#DCE6DE] text-[#41584B]'}">${st.label}</button>
+              `).join('')}
+              <button type="button" onclick="state.vanityIngredient = state.vanityIngredient === '판테놀' ? '' : '판테놀'; render();" class="px-2.5 py-1 rounded-lg font-medium ${state.vanityIngredient === '판테놀' ? 'bg-[#214E3A] text-white' : 'bg-white border border-[#DCE6DE] text-[#214E3A]'}">#판테놀 필터</button>
+            </div>
+
+            <!-- 보유 제품 카드 목록 -->
+            <div class="space-y-2.5">
+              ${filtered.map(item => `
+                <div onclick="openProductDetail('${item.code}')" class="cursor-pointer bg-white p-3.5 rounded-2xl border ${item.status === 'expired' ? 'border-[#F5C2C2] bg-[#FFFafa]' : 'border-[#E2ECE4]'} flex items-center justify-between hover:border-[#214E3A]">
+                  <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-xl bg-[#EAF2EC] flex items-center justify-center text-lg">
+                      ${item.category === '색조' ? '💄' : (item.category === '향수' ? '✨' : '🧴')}
+                    </div>
+                    <div>
+                      <div class="text-[11px] text-[#5A6E62]">${item.brand} · ${item.volume} · ${item.category}</div>
+                      <div class="text-sm font-bold">${item.name}</div>
+                      <div class="text-[11px] font-semibold mt-0.5 ${item.status === 'expired' ? 'text-[#B91C1C]' : 'text-[#214E3A]'}">
+                        ${item.status === 'unopened' ? '미개봉' : `사용 중 · ${item.remaining_percent}% 남음`} · ${item.deadline_badge}
+                      </div>
+                    </div>
+                  </div>
+                  <span class="text-xs text-[#687C70]">›</span>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- 지난 제품 보관함 배너 -->
+            <div class="bg-[#EDF4EF] p-3.5 rounded-2xl flex items-center justify-between text-xs">
+              <div>
+                <div class="font-bold text-[#1C2822]">다 쓴 제품은 보관함에서 찾아요</div>
+                <p class="text-[11px] text-[#5A6E62]">종료한 제품과 평가 기록 ${archived.length}개가 보관되어 있어요.</p>
+              </div>
+              <button type="button" onclick="navigate('ARC-01')" class="px-3 py-1.5 rounded-xl bg-white font-bold text-[#214E3A] border border-[#CFDCD3]">보관함</button>
+            </div>
+
+            <button type="button" onclick="navigate('REG-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">+ 제품 등록하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      // B · 사용 중 제품 상세 (PROD-01)
+      if (s === 'PROD-01') {
+        const evals = state.evaluations[p.code] || [];
+        const latestEval = evals[0];
+        vp.innerHTML = `
+          <div class="space-y-4 py-2 text-xs">
+            <div class="flex items-center justify-between">
+              <button type="button" onclick="navigate('VAN-01')" class="font-bold text-[#214E3A]">‹ 제품 상세 (${p.code})</button>
+              <button type="button" onclick="navigate('PROD-02')" class="font-semibold text-[#214E3A] underline">정보 수정</button>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] flex items-center gap-3.5">
+              <div class="w-14 h-14 rounded-2xl bg-[#EAF2EC] flex items-center justify-center text-2xl">🧴</div>
+              <div>
+                <div class="text-[#5A6E62]">${p.brand} · ${p.volume} · ${p.category}</div>
+                <h2 class="text-base font-bold mt-0.5">${p.name}</h2>
+                <div class="flex gap-1.5 mt-1.5">
+                  <span class="px-2 py-0.5 rounded-full bg-[#214E3A] text-white text-[10px] font-bold">${p.status === 'expired' ? '기한 초과' : '사용 중'}</span>
+                  <span class="px-2 py-0.5 rounded-full bg-[#EDF3EE] text-[#214E3A] text-[10px] font-semibold">${p.remaining_percent}% 남음</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 적용 사용 기한 박스 -->
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl border border-[#CFE0D4]">
+              <div class="text-[#214E3A] font-semibold">적용 사용 기한 (${p.deadline_badge})</div>
+              <div class="text-xl font-bold text-[#1C2822] mt-1">${p.calculated_deadline || '기한 확인 필요'}</div>
+              <p class="text-[11px] text-[#41584B] mt-1">계산 근거: ${p.deadline_basis}</p>
+            </div>
+
+            <!-- 날짜와 사용 정보 -->
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <div class="font-bold text-sm mb-1">날짜와 사용 정보</div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">구매일</span><span class="font-semibold">${p.purchase_date || '-'}</span></div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">개봉일</span><span class="font-semibold">${p.opened_date || '미등록'}</span></div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">인쇄 사용 기한</span><span class="font-semibold">${p.printed_expiry_date || '미확인'}</span></div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">PAO (개봉 후 기한)</span><span class="font-semibold">${p.pao_months ? p.pao_months + '개월' : '미등록'}</span></div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">주요 성분</span><span class="font-semibold">${(p.main_ingredients || []).join(', ')}</span></div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">구매 가격 / 영수증</span><span class="font-semibold">${(p.purchase_price || 18000).toLocaleString()}원 (${p.receipt_code || '직접 입력'})</span></div>
+            </div>
+
+            <!-- 내 평가 요약 -->
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-sm">내 평가 (비공개)</span>
+                <button type="button" onclick="navigate('REV-02')" class="text-[#214E3A] font-semibold">기록 타임라인 보기 →</button>
+              </div>
+              ${latestEval ? `
+                <div class="text-sm font-bold text-[#214E3A]">★ ${latestEval.rating.toFixed(1)} · ${latestEval.skin_fit} · 재구매 ${latestEval.repurchase_intent}</div>
+                <p class="text-[#41584B]">"${latestEval.memo}" (${latestEval.date})</p>
+              ` : `<p class="text-[#5A6E62]">아직 작성된 평가가 없어요.</p>`}
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <button type="button" onclick="openEvaluation('${p.code}')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">평가 작성 · 수정</button>
+              <button type="button" onclick="openDisposal('${p.code}')" class="w-full py-3.5 rounded-2xl btn-secondary font-bold text-sm">다 썼어요 · 폐기 기록 (분리배출 안내)</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // B · 제품 정보 수정 (PROD-02)
+      if (s === 'PROD-02') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-2 text-xs">
+            <button type="button" onclick="openProductDetail('${p.code}')" class="font-bold text-[#214E3A]">‹ 제품 정보 수정 (${p.code})</button>
+            <div class="bg-[#E8F2EB] p-3.5 rounded-2xl">
+              <div class="font-bold">내 보유 기록만 수정해요</div>
+              <p class="text-[11px] text-[#41584B] mt-0.5">개봉일과 PAO를 수정하면 사용 기한이 자동으로 다시 계산돼요.</p>
+            </div>
+            <div class="space-y-3 bg-white p-4 rounded-2xl border border-[#E2ECE4]">
+              <div>
+                <label class="font-semibold block mb-1">제품명</label>
+                <input type="text" value="${p.name}" disabled class="w-full px-3 py-2 rounded-xl bg-[#F2F5F3] border border-[#DCE6DE]" />
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">남은 양 (%)</label>
+                <input id="edit-remaining" type="number" value="${p.remaining_percent}" class="w-full px-3 py-2 rounded-xl bg-white border border-[#CFDCD3]" />
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">메모</label>
+                <textarea id="edit-memo" rows="2" class="w-full px-3 py-2 rounded-xl bg-white border border-[#CFDCD3]">${p.memo || ''}</textarea>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <button type="button" onclick="handleSaveProductEdit('${p.code}')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">변경 내용 저장</button>
+              <button type="button" onclick="openProductDetail('${p.code}')" class="w-full py-3 rounded-2xl btn-secondary font-semibold">취소 · 상세로</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // B · 미개봉 제품 상세 및 개봉일 등록 (PROD-04 & PROD-03)
+      if (s === 'PROD-04') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-2 text-xs">
+            <button type="button" onclick="navigate('VAN-01')" class="font-bold text-[#214E3A]">‹ 미개봉 제품 상세 (${p.code})</button>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] flex items-center gap-3.5">
+              <div class="w-14 h-14 rounded-2xl bg-[#EAF2EC] flex items-center justify-center text-2xl">🧪</div>
+              <div>
+                <div class="text-[#5A6E62]">${p.brand} · ${p.volume} · ${p.category}</div>
+                <h2 class="text-base font-bold mt-0.5">${p.name}</h2>
+                <span class="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-[#214E3A] text-white text-[10px] font-bold">미개봉 · 개봉일 미등록</span>
+              </div>
+            </div>
+
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl border border-[#CFE0D4]">
+              <div class="text-[#214E3A] font-semibold">개봉 전 확인된 인쇄 기한</div>
+              <div class="text-xl font-bold mt-1">${p.printed_expiry_date || '2027.08.31'}</div>
+              <p class="text-[11px] text-[#41584B] mt-1">개봉 후 사용 기한(PAO ${p.pao_months || 12}개월)은 개봉일부터 계산해요. 미개봉 상태에서는 PAO를 시작하지 않아요.</p>
+            </div>
+
+            <!-- PROD-03 개봉일 등록 바텀시트 카드 통합 -->
+            <div class="bg-white p-4 rounded-2xl border-2 border-[#214E3A] space-y-3">
+              <div class="font-bold text-sm text-[#214E3A]">오늘 개봉했어요 · 날짜 등록 (PROD-03)</div>
+              <div>
+                <label class="font-semibold block mb-1">개봉일 선택 *</label>
+                <input id="open-date-input" type="date" value="2026-10-30" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]" />
+              </div>
+              <div class="bg-[#F2F7F4] p-3 rounded-xl space-y-1 text-[11px]">
+                <div class="font-bold text-[#214E3A]">자동 계산 미리보기: 2027.08.31</div>
+                <div>· 개봉일 + PAO 12개월 = 2027.10.30</div>
+                <div>· 인쇄 사용 기한 = 2027.08.31 (더 이른 날짜 자동 적용)</div>
+              </div>
+              <button type="button" onclick="handleOpenUnopenedProduct('${p.code}')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">개봉일 저장하기</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // C · 영수증에서 내 화장대로 (REG-01, REG-04, REG-06, REG-07, REG-08)
+      if (s === 'REG-01') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-2 text-xs">
+            <button type="button" onclick="navigate('HOME-01')" class="font-bold text-[#214E3A]">‹ 새 화장품 등록 (REG-01)</button>
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl space-y-1">
+              <h2 class="text-base font-bold">한 장의 영수증으로, 빠짐없이 기억해요.</h2>
+              <p class="text-[#41584B]">구매일과 제품명을 읽고 화장대에 담아드려요.</p>
+            </div>
+
+            <!-- 영수증 미리보기 카드 (REG-02) -->
+            <div class="bg-[#1C2822] p-4 rounded-3xl text-white space-y-2">
+              <div class="text-center border-b border-white/20 pb-2">
+                <div class="font-bold text-sm">보태닉 스토어 (영수증 R-031)</div>
+                <div class="text-[11px] text-white/70">2026.10.30 14:20</div>
+              </div>
+              <div class="flex justify-between text-[11px]"><span>수분 장벽 크림 (1개)</span><span>18,000원</span></div>
+              <div class="flex justify-between text-[11px]"><span>판테놀 세럼 (1개)</span><span>22,000원</span></div>
+              <div class="flex justify-between text-[11px] text-white/60"><span>화장솜 (비화장품 제외 대상)</span><span>3,300원</span></div>
+              <div class="flex justify-between font-bold text-xs border-t border-white/20 pt-2"><span>합계</span><span>43,300원</span></div>
+            </div>
+
+            <div class="space-y-2">
+              <button type="button" onclick="showToast('영수증(R-031) 분석이 완료되었습니다!'); navigate('REG-04')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">촬영한 영수증 분석하기 (R-031)</button>
+              <button type="button" onclick="navigate('REG-06')" class="w-full py-3.5 rounded-2xl btn-secondary font-bold text-sm">영수증 없이 제품 직접 등록하기</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'REG-04') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('REG-01')" class="font-bold text-[#214E3A]">‹ 인식 결과 검토 (REG-04 · R-031)</button>
+            <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4] space-y-1.5">
+              <div class="flex justify-between"><span>구매처</span><span class="font-bold">보태닉 스토어</span></div>
+              <div class="flex justify-between"><span>구매일</span><span class="font-bold">2026.10.30</span></div>
+              <div class="flex justify-between"><span>인식 품목</span><span class="font-bold text-[#214E3A]">화장품 2개 선택 / 비화장품 1개 제외</span></div>
+            </div>
+
+            <div class="space-y-2">
+              <div class="bg-white p-3.5 rounded-2xl border-2 border-[#214E3A]">
+                <label class="flex items-center gap-2 font-bold text-sm text-[#214E3A]">
+                  <input type="checkbox" checked /> <span>라운드리프 · 수분 장벽 크림</span>
+                </label>
+                <p class="text-[11px] text-[#5A6E62] mt-1">1개 · 18,000원 · 카탈로그 CAT-01 자동 매칭됨</p>
+              </div>
+
+              <div class="bg-white p-3.5 rounded-2xl border-2 border-[#214E3A]">
+                <label class="flex items-center gap-2 font-bold text-sm text-[#214E3A]">
+                  <input type="checkbox" checked /> <span>라운드리프 · 판테놀 세럼</span>
+                </label>
+                <p class="text-[11px] text-[#5A6E62] mt-1">1개 · 22,000원 · 카탈로그 CAT-03 매칭 완료</p>
+              </div>
+
+              <div class="bg-[#F2F4F3] p-3.5 rounded-2xl border border-[#DCE6DE] opacity-75">
+                <label class="flex items-center gap-2 font-semibold text-[#5A6E62]">
+                  <input type="checkbox" disabled /> <span>화장솜 · 화장품 외 상품 자동 제외</span>
+                </label>
+                <p class="text-[11px] text-[#687C70] mt-1">1개 · 3,300원 · 소품류는 화장대 기한 관리에서 제외해요.</p>
+              </div>
+            </div>
+
+            <button type="button" onclick="navigate('REG-07')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">선택한 2개 제품 확인하기 →</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'REG-06') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('REG-01')" class="font-bold text-[#214E3A]">‹ 제품 직접 등록 (REG-06)</button>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-3">
+              <div>
+                <label class="font-semibold block mb-1">브랜드 *</label>
+                <input id="reg-brand" type="text" value="라운드리프" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]" />
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">제품명 *</label>
+                <input id="reg-name" type="text" value="수분 진정 앰플" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]" />
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="font-semibold block mb-1">카테고리 *</label>
+                  <select id="reg-category" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3] bg-white">
+                    <option value="스킨케어">스킨케어</option>
+                    <option value="색조">색조</option>
+                    <option value="향수">향수</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="font-semibold block mb-1">용량</label>
+                  <input id="reg-volume" type="text" value="50 ml" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]" />
+                </div>
+              </div>
+            </div>
+            <button type="button" onclick="handleManualRegister()" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">내 화장대에 바로 추가하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'REG-07' || s === 'REG-08') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-2 text-xs">
+            <button type="button" onclick="navigate('REG-04')" class="font-bold text-[#214E3A]">‹ 생성 내용 확인 · 중복 안내 (REG-07)</button>
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl border border-[#CFE0D4] space-y-1">
+              <div class="font-bold text-sm text-[#214E3A]">같은 제품도 기록할 수 있어요!</div>
+              <p class="text-[#41584B]">현재 화장대에 <strong>라운드리프 수분 장벽 크림(OWN-101 · 35% 남음)</strong>이 있어요. 새로 구매한 제품은 별도의 미개봉 기록으로 구분해 저장해요.</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <div class="font-bold">이번에 추가할 제품 (영수증 R-031)</div>
+              <div class="p-2.5 rounded-xl bg-[#F5F9F6]">1. 라운드리프 수분 장벽 크림 · 미개봉 (인쇄기한 확인 예정)</div>
+              <div class="p-2.5 rounded-xl bg-[#F5F9F6]">2. 라운드리프 판테놀 세럼 · 미개봉 (OWN-103)</div>
+            </div>
+            <button type="button" onclick="showToast('화장대가 조금 더 선명해졌어요!'); navigate('VAN-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">내 화장대에 추가 완료하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      // D · 개인 평가 · 기한 관리 · 알림함 (REV-01, REV-02, EXP-01, NOTI-01)
+      if (s === 'REV-01') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="openProductDetail('${p.code}')" class="font-bold text-[#214E3A]">‹ 나의 평가 기록 작성 (REV-01)</button>
+            <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+              <div class="text-[#5A6E62]">${p.brand} · ${p.volume}</div>
+              <div class="font-bold text-sm">${p.name}</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-3">
+              <div>
+                <label class="font-bold block mb-1">전반적인 만족도 (1~5점)</label>
+                <select id="eval-rating" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3] bg-white font-bold text-[#214E3A]">
+                  <option value="5.0">★★★★★ (5.0 / 5)</option>
+                  <option value="4.0" selected>★★★★☆ (4.0 / 5)</option>
+                  <option value="3.0">★★★☆☆ (3.0 / 5)</option>
+                  <option value="2.0">★★☆☆☆ (2.0 / 5)</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold block mb-1">내 피부와 잘 맞았나요?</label>
+                <select id="eval-fit" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3] bg-white">
+                  <option value="잘 맞아요" selected>잘 맞아요</option>
+                  <option value="보통">보통</option>
+                  <option value="맞지 않아요">맞지 않아요</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold block mb-1">다시 구매하고 싶나요?</label>
+                <select id="eval-intent" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3] bg-white">
+                  <option value="네, 있어요" selected>네, 있어요</option>
+                  <option value="고민 중이에요">고민 중이에요</option>
+                  <option value="아니요">아니요</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold block mb-1">사용 메모</label>
+                <textarea id="eval-memo" rows="2" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]">저녁에 바르기 좋았어요. 건조함이 덜 느껴져요.</textarea>
+              </div>
+            </div>
+
+            <div class="bg-[#E8F2EB] p-3 rounded-2xl text-[11px] text-[#214E3A]">
+              🔒 <strong>이 평가는 나만 볼 수 있어요.</strong> 커뮤니티에 나누고 싶다면 저장한 뒤 별도로 글을 작성해요.
+            </div>
+
+            <button type="button" onclick="handleSaveEvaluation('${p.code}')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">비공개로 저장하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'REV-02') {
+        const list = state.evaluations[p.code] || state.evaluations['OWN-101'];
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="openProductDetail('${p.code}')" class="font-bold text-[#214E3A]">‹ 내 평가 기록 타임라인 (REV-02)</button>
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl space-y-1">
+              <div class="text-[#214E3A] font-semibold">나에게 남긴 가장 최근의 답</div>
+              <div class="text-lg font-bold">★ ${list[0].rating.toFixed(1)} · ${list[0].skin_fit}</div>
+              <div class="text-[11px] text-[#41584B]">재구매 의향: ${list[0].repurchase_intent} · 평가 수 ${list.length}회 (모두 비공개)</div>
+            </div>
+
+            <div class="space-y-2.5">
+              <div class="font-bold">사용하며 달라진 기록</div>
+              ${list.map(ev => `
+                <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4] space-y-1">
+                  <div class="flex justify-between text-[11px] text-[#5A6E62]"><span>${ev.date}</span><span class="font-semibold text-[#214E3A]">${ev.label}</span></div>
+                  <div class="font-bold text-sm">${ev.rating.toFixed(1)} / ${ev.skin_fit}</div>
+                  <p class="text-[#41584B]">${ev.memo}</p>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <button type="button" onclick="openEvaluation('${p.code}')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">최근 평가 수정 / 추가</button>
+              <button type="button" onclick="navigate('COM-03')" class="w-full py-3 rounded-2xl btn-secondary font-bold">이 평가로 커뮤니티 글 작성 (선택 공개)</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'EXP-01') {
+        const expired = active.filter(x => x.status === 'expired' || (x.d_day !== null && x.d_day < 0));
+        const within30 = active.filter(x => x.status === 'in_use' && x.d_day !== null && x.d_day >= 0 && x.d_day <= 30);
+        const later = active.filter(x => x.d_day !== null && x.d_day > 30);
+        const unknown = active.filter(x => x.calculated_deadline === null);
+        const map = { expired, within30, later, unknown };
+        const currentList = map[state.deadlineTab] || within30;
+
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('VAN-01')" class="font-bold text-[#214E3A]">‹ 사용 기한 관리 (EXP-01 · 기준일 2026.10.30)</button>
+            <h2 class="text-lg font-bold">기한을 기억하면,<br/>마지막까지 신중하게.</h2>
+
+            <div class="flex flex-wrap gap-1.5">
+              ${[
+                { k: 'expired', label: `기한 초과 ${expired.length}` },
+                { k: 'within30', label: `30일 이내 ${within30.length}` },
+                { k: 'later', label: `이후 ${later.length}` },
+                { k: 'unknown', label: `미확인 ${unknown.length}` }
+              ].map(t => `
+                <button type="button" onclick="state.deadlineTab='${t.k}'; render();" class="px-3 py-1.5 rounded-full font-bold ${state.deadlineTab === t.k ? 'chip-active' : 'chip-inactive'}">${t.label}</button>
+              `).join('')}
+            </div>
+
+            <div class="space-y-2.5">
+              ${currentList.map(item => `
+                <div onclick="openProductDetail('${item.code}')" class="cursor-pointer bg-white p-3.5 rounded-2xl border border-[#E2ECE4] space-y-2">
+                  <div class="flex justify-between items-center">
+                    <div>
+                      <div class="text-[11px] text-[#5A6E62]">${item.brand} · ${item.volume}</div>
+                      <div class="font-bold text-sm">${item.name}</div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-[11px] font-bold ${item.status === 'expired' ? 'bg-[#FEE2E2] text-[#991B1B]' : 'bg-[#E8F2EB] text-[#214E3A]'}">${item.deadline_badge}</span>
+                  </div>
+                  <div class="bg-[#F4F8F5] p-2.5 rounded-xl text-[11px] text-[#41584B]">
+                    <div><strong>적용 기한:</strong> ${item.calculated_deadline || 'PAO 미등록'}</div>
+                    <div><strong>계산 근거:</strong> ${item.deadline_basis}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="bg-[#EDF4EF] p-3.5 rounded-2xl text-[11px] text-[#41584B] space-y-1">
+              <div class="font-bold text-[#1C2822]">어떤 날짜를 기준으로 하나요?</div>
+              <p>① 인쇄 사용 기한 ② 개봉일 + 확인한 PAO 중 둘 다 알면 <strong>더 이른 날</strong>을 사용해요. 미개봉 제품은 PAO를 계산하지 않아요.</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'NOTI-01') {
+        const filteredNotis = state.notifications.filter(n => state.notiCategory === '전체' || n.category === state.notiCategory);
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <div class="flex items-center justify-between">
+              <button type="button" onclick="navigate('HOME-01')" class="font-bold text-[#214E3A]">‹ 알림함 (NOTI-01)</button>
+              <span class="text-[#5A6E62]">안 읽은 알림 ${state.notifications.filter(n => n.unread).length}개</span>
+            </div>
+
+            <div class="flex gap-1.5">
+              ${['전체', '사용 기한', '계절 안내', '평가 기록'].map(cat => `
+                <button type="button" onclick="state.notiCategory='${cat}'; render();" class="px-3 py-1.5 rounded-full font-semibold ${state.notiCategory === cat ? 'chip-active' : 'chip-inactive'}">${cat}</button>
+              `).join('')}
+            </div>
+
+            <div class="space-y-2.5">
+              ${filteredNotis.map(n => `
+                <div onclick="if('${n.owned_code}') state.selectedProductCode='${n.owned_code}'; navigate('${n.target_screen}')" class="cursor-pointer p-3.5 rounded-2xl border ${n.unread ? 'bg-white border-[#214E3A]' : 'bg-[#F3F6F4] border-[#DCE6DE]'} space-y-1">
+                  <div class="flex justify-between text-[11px] text-[#5A6E62]">
+                    <span class="font-bold ${n.unread ? 'text-[#214E3A]' : ''}">● ${n.category} · ${n.time}</span>
+                    <span>${n.unread ? '안 읽음' : '읽음'}</span>
+                  </div>
+                  <div class="font-bold text-sm ${n.code === 'N-02' ? 'text-[#B91C1C]' : 'text-[#1C2822]'}">${n.title}</div>
+                  <p class="text-[#41584B]">${n.body}</p>
+                  <div class="font-bold text-[#214E3A] pt-1">${n.action_label}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <button type="button" onclick="handleMarkAllNotificationsRead()" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">모두 읽음으로 표시</button>
+              <button type="button" onclick="navigate('MY-02')" class="w-full py-3 rounded-2xl btn-secondary font-semibold">알림 설정</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // E · 비우기 · 분리배출 · 보관함 · 구매 전 체크 (DIS-01~04, ARC-01, BUY-01~02)
+      if (s === 'DIS-01') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="openProductDetail('${p.code}')" class="font-bold text-[#214E3A]">‹ 다 썼어요 · 폐기 기록 (DIS-01)</button>
+            <h2 class="text-lg font-bold">마지막 사용도<br/>다음 선택의 기록이 돼요.</h2>
+            <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+              <div class="font-bold text-sm">${p.brand} · ${p.name}</div>
+              <div class="text-[#5A6E62] mt-0.5">${p.volume} · ${p.deadline_badge}</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-3">
+              <div>
+                <div class="font-bold mb-1.5">어떤 이유로 마무리하나요?</div>
+                <div class="flex gap-1.5">
+                  <span class="px-3 py-1.5 rounded-full chip-active font-semibold">다 썼어요</span>
+                  <span class="px-3 py-1.5 rounded-full chip-inactive">기한이 지났어요</span>
+                  <span class="px-3 py-1.5 rounded-full chip-inactive">피부에 맞지 않아요</span>
+                </div>
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">마지막 사용·종료일</label>
+                <input type="text" value="2026.10.30" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]" />
+              </div>
+              <div>
+                <label class="font-semibold block mb-1">종료 시 남은 양</label>
+                <input type="text" value="0% · 모두 사용했어요" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]" />
+              </div>
+            </div>
+
+            <div class="bg-[#E8F2EB] p-3.5 rounded-2xl text-[11px] text-[#214E3A]">
+              <strong>나의 평가는 그대로 남아요</strong> · 폐기 기록은 삭제가 아니에요. 지난 제품 보관함에서 언제든 다시 볼 수 있어요.
+            </div>
+
+            <button type="button" onclick="navigate('DIS-02')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">종료 기록 저장 · 분리배출 안내 보기 →</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'DIS-02') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('DIS-01')" class="font-bold text-[#214E3A]">‹ 비우기 · 분리배출 안내 (DIS-02)</button>
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl">
+              <h2 class="text-base font-bold">작은 용기까지, 차근차근 비워요.</h2>
+              <p class="text-[#41584B] mt-0.5">${p.brand} ${p.name} · 부위별 재질 기준</p>
+            </div>
+
+            <div class="space-y-2">
+              <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+                <div class="font-bold text-[#214E3A]">#1 본체 · PP 플라스틱</div>
+                <p class="text-[#41584B] mt-1">잔여물을 닦아낸 뒤 물로 헹궈 주세요. 세척 가능한 플라스틱은 플라스틱으로 배출해요.</p>
+              </div>
+              <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+                <div class="font-bold text-[#214E3A]">#2 뚜껑 · PP 플라스틱</div>
+                <p class="text-[#41584B] mt-1">본체에서 분리해요. 안쪽 패킹이 분리되면 떼어내고 별도 재질로 확인해 주세요.</p>
+              </div>
+              <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+                <div class="font-bold text-[#214E3A]">#3 레이어 · 복합 재질 & 펌프</div>
+                <p class="text-[#41584B] mt-1">라벨을 떼어내고 접착제까지 닦아요. 금속 스프링이 섞인 펌프는 일반쓰레기인 경우가 많아요.</p>
+              </div>
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <button type="button" onclick="handleCompleteDisposal('${p.code}')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">분리배출 완료로 기록 (보관함 이동)</button>
+              <button type="button" onclick="navigate('DIS-03')" class="w-full py-3 rounded-2xl btn-secondary font-bold">공병 수거처 찾아보기</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'DIS-03') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('DIS-02')" class="font-bold text-[#214E3A]">‹ 공병 수거처 안내 (DIS-03)</button>
+            <div class="bg-[#FEF3C7] p-3.5 rounded-2xl text-[#92400E]">
+              <strong>위치 권한이 꺼져 있어도 괜찮아요</strong><br/>지역명·매장명 검색으로 수거 기준과 운영 시간을 확인할 수 있어요.
+            </div>
+            <div class="space-y-2.5">
+              <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-1">
+                <span class="text-[10px] font-bold text-[#214E3A]">예시 A · 브랜드 매장 회수함</span>
+                <div class="font-bold text-sm">보태닉 공병 회수함</div>
+                <div class="text-[#5A6E62]">기흥구 예시동 · 10:00~20:30 (휴무일 확인)</div>
+                <div class="text-[#41584B]">수거 대상: 빈 화장품 유리·플라스틱 본체 (색조·샘플 제외)</div>
+              </div>
+              <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-1">
+                <span class="text-[10px] font-bold text-[#214E3A]">예시 B · 리필 스테이션</span>
+                <div class="font-bold text-sm">리필 라운지 수거함</div>
+                <div class="text-[#5A6E62]">기흥구 예시로 · 세척 상태 및 라벨 제거 필수</div>
+                <div class="text-[#41584B]">수거 대상: 세척 완료된 투명 PET 및 PP 용기</div>
+              </div>
+            </div>
+            <button type="button" onclick="navigate('DIS-02')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">수거처 확인 후 안내로 돌아가기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'DIS-04') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-4 text-xs text-center">
+            <div class="w-16 h-16 mx-auto rounded-full bg-[#E8F2EB] flex items-center justify-center text-2xl">🌿</div>
+            <h2 class="text-xl font-bold">잘 썼고, 잘 비웠어요</h2>
+            <p class="text-[#5A6E62]">${p.name}을 지난 제품 보관함으로 옮겼어요.<br/>기록은 사라지지 않아요.</p>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] text-left space-y-1.5">
+              <div class="flex justify-between"><span>마무리 사유</span><span class="font-bold">다 썼어요 · 잔량 0%</span></div>
+              <div class="flex justify-between"><span>배출 완료일</span><span class="font-bold">2026.10.30</span></div>
+              <div class="flex justify-between"><span>나의 평가</span><span class="font-bold text-[#214E3A]">4.0 · 잘 맞아요 · 유지됨</span></div>
+            </div>
+            <div class="space-y-2">
+              <button type="button" onclick="navigate('ARC-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">지난 제품 보관함 보기</button>
+              <button type="button" onclick="navigate('BUY-01')" class="w-full py-3 rounded-2xl btn-secondary font-bold">다음 구매 전, 내 기록 확인</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'ARC-01') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('VAN-01')" class="font-bold text-[#214E3A]">‹ 지난 제품 보관함 (ARC-01 · 총 ${archived.length}개)</button>
+            <h2 class="text-lg font-bold">다 쓴 제품이 남긴<br/>나만의 취향.</h2>
+            <div class="space-y-2.5">
+              ${archived.map(item => `
+                <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-1.5">
+                  <div class="flex justify-between">
+                    <span class="text-[#5A6E62]">${item.brand} · ${item.category}</span>
+                    <span class="font-semibold text-[#214E3A]">${item.archive_reason} · ${item.ended_date}</span>
+                  </div>
+                  <div class="text-sm font-bold">${item.name}</div>
+                  <div class="text-[#41584B] font-medium">내 평가: ${item.rating_summary}</div>
+                  <p class="text-[11px] text-[#5A6E62]">${item.memo}</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // E · 구매 전 체크 & 비교 (BUY-01, BUY-02)
+      if (s === 'BUY-01') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <h2 class="text-lg font-bold">구매 전 체크 (BUY-01)<br/>내 화장대에 비슷한 제품이 있을까요?</h2>
+            <div class="flex gap-2">
+              <input type="text" value="${state.precheckQuery}" oninput="state.precheckQuery=this.value" class="flex-1 px-3.5 py-2.5 rounded-2xl border border-[#CFDCD3] bg-white" placeholder="제품명, 카테고리, 성분 검색" />
+              <button type="button" onclick="render()" class="px-4 py-2.5 rounded-2xl btn-primary font-bold">검색</button>
+            </div>
+
+            <!-- 구매 고민 중인 후보 제품 -->
+            <div class="bg-[#E8F2EB] p-3.5 rounded-2xl border border-[#CFE0D4] space-y-1">
+              <div class="text-[10px] font-bold text-[#214E3A]">구매를 고민 중인 카탈로그 제품</div>
+              <div class="font-bold text-sm">모닝듀 진정 토너 · 200 ml (CAT-02)</div>
+              <div class="text-[#41584B]">스킨케어 · 주요 성분: 병풀추출물, 판테놀</div>
+            </div>
+
+            <!-- 나의 기록에서 찾았어요 -->
+            <div class="bg-white p-4 rounded-2xl border-2 border-[#214E3A] space-y-2">
+              <div class="font-bold text-[#214E3A]">나의 기록에서 찾았어요! (보유 중)</div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-sm">모닝듀 진정 토너 (OWN-102)</div>
+                  <div class="text-[#5A6E62]">사용 중 · <strong>60% 남음</strong> · 2027.03.01까지</div>
+                </div>
+                <span class="px-2.5 py-1 rounded-full bg-[#E8F2EB] text-[#214E3A] font-bold">동일 제품</span>
+              </div>
+            </div>
+
+            <!-- 예전에 맞지 않았던 제품 경고 -->
+            <div class="bg-[#FEF2F2] p-3.5 rounded-2xl border border-[#FECACA] space-y-1">
+              <div class="font-bold text-[#991B1B]">⚠️ 예전에 맞지 않았던 제품도 확인해요</div>
+              <p class="text-[#7F1D1D]"><strong>그린더마 시카 진정 젤 · 2.0 / 맞지 않아요 (따가웠어요)</strong><br/>같은 스킨케어 카테고리의 병풀추출물 중심 제품이었어요.</p>
+            </div>
+
+            <button type="button" onclick="navigate('BUY-02')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">비슷한 보유 제품 1:1 비교하기 →</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'BUY-02') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('BUY-01')" class="font-bold text-[#214E3A]">‹ 비슷한 보유 제품 비교 (BUY-02)</button>
+            <div class="bg-[#E8F2EB] p-3.5 rounded-2xl">
+              <div class="font-bold text-sm text-[#214E3A]">같은 제품을 이미 사용 중이에요</div>
+              <p class="text-[#41584B] mt-0.5">현재 남은 양(60%)과 지난 평가(5.0점)를 확인해 중복 구매를 줄여보세요.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <div class="bg-white p-3.5 rounded-2xl border border-[#DCE6DE] space-y-1.5">
+                <span class="px-2 py-0.5 rounded-full bg-[#EDF3EE] text-[#41584B] text-[10px] font-bold">구매 고민 제품</span>
+                <div class="font-bold text-sm">모닝듀 진정 토너</div>
+                <div class="text-[#5A6E62]">200 ml · 스킨케어</div>
+                <div class="border-t pt-1.5">성분: 병풀·판테놀</div>
+                <div>남은 양: <strong>새 제품</strong></div>
+              </div>
+              <div class="bg-white p-3.5 rounded-2xl border-2 border-[#214E3A] space-y-1.5">
+                <span class="px-2 py-0.5 rounded-full bg-[#214E3A] text-white text-[10px] font-bold">현재 보유 제품</span>
+                <div class="font-bold text-sm">모닝듀 진정 토너</div>
+                <div class="text-[#5A6E62]">200 ml · OWN-102</div>
+                <div class="border-t pt-1.5">성분: 병풀·판테놀</div>
+                <div class="text-[#214E3A] font-bold">남은 양: 60% 남음</div>
+                <div>기한: 2027.03.01</div>
+                <div class="font-bold text-[#214E3A]">내 평가: ★ 5.0 잘 맞아요</div>
+              </div>
+            </div>
+
+            <div class="space-y-2 pt-1">
+              <button type="button" onclick="openProductDetail('OWN-102')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">보유 제품(OWN-102) 상세 보기</button>
+              <button type="button" onclick="navigate('REG-06')" class="w-full py-3 rounded-2xl btn-secondary font-semibold">실제 새로 구매했다면 화장대에 등록</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // F · 내 기록 기반 추천 · 계절 케어 · 커뮤니티 (REC-01, SEA-01, COM-01~03)
+      if (s === 'REC-01') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('HOME-01')" class="font-bold text-[#214E3A]">‹ 내 기록 기반 추천 (REC-01)</button>
+            <h2 class="text-lg font-bold">유행보다,<br/>나에게 남은 좋은 기록.</h2>
+
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl border border-[#CFE0D4] space-y-2">
+              <span class="px-2 py-0.5 rounded-full bg-[#214E3A] text-white text-[10px] font-bold">MY RECORD FIRST · 다시 살펴볼 제품</span>
+              <div class="font-bold text-base">모닝듀 진정 토너 (200 ml)</div>
+              <div class="font-semibold text-[#214E3A]">내 만족도 ★ 5.0 · 잘 맞아요</div>
+              <p class="text-[#41584B]">추천 이유: 10.15 평가에서 재구매 의향을 남겼어요. 아직 60% 남아 있어 먼저 보유 제품을 확인해요.</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-1.5">
+              <div class="font-bold">추천에 사용한 내 기록</div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">만족도</span><span class="font-semibold">최근 평가와 재구매 의향</span></div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">피부 정보</span><span class="font-semibold">직접 선택한 ${state.user.skin_type} · ${state.user.skin_concerns.join('·')}</span></div>
+              <div class="flex justify-between"><span class="text-[#5A6E62]">맞지 않은 기록 제외</span><span class="font-semibold text-[#B91C1C]">시카 진정 젤 · 2.0 / 따가움</span></div>
+            </div>
+
+            <button type="button" onclick="navigate('BUY-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">진정 토너 · 구매 전 체크하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'SEA-01') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('HOME-01')" class="font-bold text-[#214E3A]">‹ 계절별 케어 안내 (SEA-01 · 가을)</button>
+            <div class="bg-[#E8F2EB] p-4 rounded-2xl space-y-1">
+              <div class="text-lg">🍂</div>
+              <h2 class="text-base font-bold">찬 바람이 불면, 루틴도 천천히.</h2>
+              <p class="text-[#41584B]">선택한 관심사 '건조함'과 보유 제품에 기록된 판테놀·세라마이드를 기준으로 정리했어요.</p>
+            </div>
+
+            <div class="space-y-2">
+              <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+                <div class="font-bold text-[#214E3A]">01 · 보습 관련 성분을 확인해요</div>
+                <p class="text-[#41584B] mt-1">판테놀·히알루론산·세라마이드는 보습 제품에서 자주 볼 수 있어요. 실제 사용감과 내 기록을 함께 확인해요.</p>
+              </div>
+              <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+                <div class="font-bold text-[#214E3A]">02 · 관련된 내 보유 제품</div>
+                <div class="mt-1 font-bold">라운드리프 · 수분 장벽 크림 (사용 중 · 35% 남음 · D-13)</div>
+              </div>
+            </div>
+
+            <button type="button" onclick="openProductDetail('OWN-101')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">관련 보유 제품 살펴보기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'COM-01') {
+        const list = state.posts.filter(post => state.communityTab === 'all' || post.type === state.communityTab);
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('HOME-01')" class="font-bold text-[#214E3A]">‹ 커뮤니티 (COM-01)</button>
+            <h2 class="text-lg font-bold">가볍게 묻고,<br/>경험을 나누어요.</h2>
+
+            <div class="flex gap-1.5">
+              ${['all', '질문', '추천', '후기'].map(t => `
+                <button type="button" onclick="state.communityTab='${t}'; render();" class="px-3 py-1.5 rounded-full font-semibold ${state.communityTab === t ? 'chip-active' : 'chip-inactive'}">${t === 'all' ? '전체' : t}</button>
+              `).join('')}
+            </div>
+
+            <div class="space-y-2.5">
+              ${list.map(post => `
+                <div onclick="state.selectedPostCode='${post.code}'; navigate('COM-02')" class="cursor-pointer bg-white p-3.5 rounded-2xl border border-[#E2ECE4] space-y-1 hover:border-[#214E3A]">
+                  <span class="text-[11px] font-bold text-[#214E3A]">${post.type}</span>
+                  <div class="font-bold text-sm">${post.title}</div>
+                  <p class="text-[#41584B] line-clamp-2">${post.body}</p>
+                  <div class="text-[11px] text-[#5A6E62] pt-1">${post.author} · ${post.date} · 댓글 ${post.comments.length} · 공감 ${post.likes}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            <button type="button" onclick="navigate('COM-03')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">+ 글 작성하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'COM-02') {
+        const post = state.posts.find(x => x.code === state.selectedPostCode) || state.posts[0];
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('COM-01')" class="font-bold text-[#214E3A]">‹ 게시글 상세 (COM-02)</button>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <span class="px-2.5 py-0.5 rounded-full bg-[#214E3A] text-white text-[10px] font-bold">${post.type}</span>
+              <h2 class="text-base font-bold">${post.title}</h2>
+              <div class="text-[11px] text-[#5A6E62]">작성자 ${post.author} · ${post.date}</div>
+              <p class="text-[#1C2822] leading-relaxed pt-1">${post.body}</p>
+              ${post.quote ? `
+                <div class="bg-[#E8F2EB] p-3 rounded-xl mt-2">
+                  <div class="text-[10px] text-[#214E3A] font-bold">작성자가 직접 선택한 평가 문구</div>
+                  <div class="font-bold mt-0.5">"${post.quote}"</div>
+                  <div class="text-[10px] text-[#5A6E62]">다른 비공개 평가·피부 프로필은 공유되지 않아요.</div>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="space-y-2">
+              <div class="font-bold">댓글 ${post.comments.length}</div>
+              ${post.comments.map(c => `
+                <div class="bg-white p-3 rounded-2xl border border-[#E2ECE4]">
+                  <div class="text-[11px] text-[#5A6E62] font-semibold">${c.author} · ${c.date}</div>
+                  <div class="mt-1">${c.body}</div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="flex gap-2">
+              <input id="comment-input" type="text" placeholder="서로의 경험을 존중하며 댓글을 남겨 주세요." class="flex-1 px-3 py-2.5 rounded-xl border border-[#CFDCD3] bg-white" />
+              <button type="button" onclick="handleAddComment()" class="px-4 py-2.5 rounded-xl btn-primary font-bold">등록</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'COM-03') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('COM-01')" class="font-bold text-[#214E3A]">‹ 커뮤니티 글 작성 (COM-03)</button>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-3">
+              <div>
+                <label class="font-bold block mb-1">말머리</label>
+                <select id="com-type" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3] bg-white">
+                  <option value="후기" selected>후기</option>
+                  <option value="질문">질문</option>
+                  <option value="추천">추천</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-bold block mb-1">제목 *</label>
+                <input id="com-title" type="text" value="수분 장벽 크림, 저녁 루틴에 좋았어요" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]" />
+              </div>
+              <div>
+                <label class="font-bold block mb-1">본문 *</label>
+                <textarea id="com-body" rows="3" class="w-full px-3 py-2 rounded-xl border border-[#CFDCD3]">저녁에 바르기 편했던 크림이에요. 마지막까지 쓴 뒤 본체와 뚜껑의 재질을 따로 확인했어요.</textarea>
+              </div>
+            </div>
+
+            <div class="bg-[#E8F2EB] p-3.5 rounded-2xl space-y-1.5">
+              <div class="font-bold text-[#214E3A]">내 비공개 평가에서 가져오기 · 선택</div>
+              <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>한 줄 문구만 공유하기 ("저녁에 바르기 좋았어요.")</span></label>
+              <label class="flex items-center gap-2"><input type="checkbox" /> <span>점수 4.0점 공유하기</span></label>
+              <p class="text-[10px] text-[#5A6E62]">체크하지 않은 메모 내용이나 원래 비공개 평가 설정은 바뀌지 않아요.</p>
+            </div>
+
+            <button type="button" onclick="handleCreateCommunityPost()" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">공개 범위 확인 · 게시하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      // G · 마이 · 알림 설정 · 계정 관리 (MY-01, MY-02, MY-03)
+      if (s === 'MY-01') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-2 text-xs">
+            <h2 class="text-lg font-bold">마이 (MY-01)</h2>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-[#E8F2EB] flex items-center justify-center text-lg">🌱</div>
+              <div>
+                <div class="font-bold text-base">${state.user.nickname}님의 기록</div>
+                <div class="text-[#5A6E62]">${state.user.email}</div>
+              </div>
+            </div>
+
+            <div class="bg-[#E8F2EB] p-3.5 rounded-2xl flex items-center justify-between">
+              <div>
+                <div class="font-bold">나의 피부 프로필</div>
+                <div class="mt-1 flex gap-1.5">
+                  <span class="px-2.5 py-0.5 rounded-full bg-[#214E3A] text-white font-bold">${state.user.skin_type}</span>
+                  ${state.user.skin_concerns.map(c => `<span class="px-2.5 py-0.5 rounded-full bg-white text-[#214E3A] font-semibold">${c}</span>`).join('')}
+                </div>
+              </div>
+              <button type="button" onclick="navigate('AUTH-05')" class="text-[#214E3A] font-bold">수정 ›</button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="bg-white p-3 rounded-2xl border border-[#E2ECE4]"><div class="text-lg font-bold">${active.length}</div><div class="text-[#5A6E62]">내 화장대</div></div>
+              <div class="bg-white p-3 rounded-2xl border border-[#E2ECE4]"><div class="text-lg font-bold">${archived.length}</div><div class="text-[#5A6E62]">지난 제품</div></div>
+              <div class="bg-white p-3 rounded-2xl border border-[#E2ECE4]"><div class="text-lg font-bold">4</div><div class="text-[#5A6E62]">평가한 제품</div></div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-[#E2ECE4] divide-y divide-[#E2ECE4]">
+              <button type="button" onclick="navigate('ARC-01')" class="w-full p-3.5 flex justify-between items-center text-left"><span class="font-semibold">지난 제품 보관함</span><span class="text-[#5A6E62]">평가와 종료 이유 ›</span></button>
+              <button type="button" onclick="navigate('REV-02')" class="w-full p-3.5 flex justify-between items-center text-left"><span class="font-semibold">내 평가 기록</span><span class="text-[#5A6E62]">비공개 ›</span></button>
+              <button type="button" onclick="navigate('COM-01')" class="w-full p-3.5 flex justify-between items-center text-left"><span class="font-semibold">내가 쓴 글</span><span class="text-[#5A6E62]">공개 게시글 ›</span></button>
+              <button type="button" onclick="navigate('MY-02')" class="w-full p-3.5 flex justify-between items-center text-left"><span class="font-semibold">알림 설정</span><span class="text-[#5A6E62]">기한·계절·커뮤니티 ›</span></button>
+              <button type="button" onclick="navigate('MY-03')" class="w-full p-3.5 flex justify-between items-center text-left"><span class="font-semibold">계정·개인정보 관리</span><span class="text-[#5A6E62]">프로필·로그아웃·탈퇴 ›</span></button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'MY-02') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('MY-01')" class="font-bold text-[#214E3A]">‹ 알림 설정 (MY-02)</button>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2.5">
+              <div class="font-bold text-sm">사용 기한 알림</div>
+              <label class="flex items-center justify-between"><span>기한 알림 받기</span><input type="checkbox" checked /></label>
+              <div class="flex gap-2 pt-1">
+                <label class="flex items-center gap-1"><input type="checkbox" checked /> 30일 전</label>
+                <label class="flex items-center gap-1"><input type="checkbox" checked /> 7일 전</label>
+                <label class="flex items-center gap-1"><input type="checkbox" /> 당일</label>
+              </div>
+              <div class="pt-1">알림 시간: <strong>오전 09:00</strong></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2.5">
+              <div class="font-bold text-sm">선택 알림 & 마케팅 수신 분리</div>
+              <label class="flex items-center justify-between"><span>계절별 케어 안내</span><input type="checkbox" checked /></label>
+              <label class="flex items-center justify-between"><span>평가 기록 알림</span><input type="checkbox" checked /></label>
+              <label class="flex items-center justify-between"><span>마케팅 수신 (기본 꺼짐)</span><input type="checkbox" /></label>
+            </div>
+
+            <button type="button" onclick="showToast('알림 설정이 저장되었어요.'); navigate('MY-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">알림 설정 저장</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'MY-03') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <button type="button" onclick="navigate('MY-01')" class="font-bold text-[#214E3A]">‹ 계정·개인정보 관리 (MY-03)</button>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <div class="font-bold text-sm">이 기기에서 로그아웃할까요?</div>
+              <p class="text-[#5A6E62]">저장한 화장품과 평가는 계정에 안전하게 남아요.</p>
+              <button type="button" onclick="showToast('로그아웃되었습니다.'); navigate('AUTH-02')" class="w-full py-2.5 rounded-xl btn-secondary font-bold">로그아웃 확인</button>
+            </div>
+
+            <div class="bg-[#FDF2F2] p-4 rounded-2xl border border-[#F5C2C2] space-y-2.5">
+              <div class="font-bold text-sm text-[#991B1B]">회원 탈퇴 · 계정과 기록을 삭제할까요?</div>
+              <p class="text-[#7F1D1D]">'지난 제품 보관함'으로 옮기는 것과 달라요. 탈퇴하면 계정과 모든 기록이 영구 삭제되며 복구할 수 없어요.</p>
+              <input type="text" value="탈퇴" class="w-full px-3 py-2 rounded-xl border border-[#F5C2C2] bg-white" placeholder="확인을 위해 '탈퇴' 입력" />
+              <button type="button" onclick="showToast('시연 모드에서는 탈퇴 확인 검증만 시연합니다.')" class="w-full py-2.5 rounded-xl bg-[#991B1B] text-white font-bold">회원 탈퇴 · 데이터 삭제</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // H · 공통 · 예외 상태 (STATE-01 ~ STATE-08)
+      if (s === 'STATE-01') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-6 text-xs text-center">
+            <div class="w-16 h-16 mx-auto rounded-full bg-[#E8F2EB] flex items-center justify-center text-2xl">🌱</div>
+            <h2 class="text-lg font-bold">나의 첫 기록을 기다려요 (STATE-01)</h2>
+            <p class="text-[#5A6E62]">자주 쓰는 화장품 하나부터 시작해 보세요.<br/>영수증이 없어도, 개봉일이나 PAO를 몰라도 등록할 수 있어요.</p>
+            <button type="button" onclick="navigate('REG-06')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">첫 제품 등록하기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'STATE-03') {
+        vp.innerHTML = `
+          <div class="space-y-4 py-4 text-xs">
+            <button type="button" onclick="navigate('REG-01')" class="font-bold text-[#214E3A]">‹ 영수증 인식 다시 시도 (STATE-03)</button>
+            <div class="bg-white p-5 rounded-2xl border border-[#E2ECE4] text-center space-y-2">
+              <div class="text-2xl">📷</div>
+              <h2 class="text-base font-bold">글자를 읽기 어려워요</h2>
+              <p class="text-[#5A6E62]">사진이 흔들리거나 일부가 잘려 있었어요.<br/>입력해 둔 초안(R-031 · 2026.10.29)은 사라지지 않았어요.</p>
+            </div>
+            <div class="space-y-2">
+              <button type="button" onclick="navigate('REG-04')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">영수증 다시 촬영 / 분석 결과 보기</button>
+              <button type="button" onclick="navigate('REG-06')" class="w-full py-3 rounded-2xl btn-secondary font-bold">기존 초안에서 직접 입력</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'STATE-05') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <div class="bg-[#FEF2F2] p-3.5 rounded-2xl border border-[#FECACA]">
+              <div class="font-bold text-[#991B1B]">연결이 잠시 끊어졌어요 (STATE-05)</div>
+              <p class="text-[#7F1D1D] mt-0.5">네트워크를 확인하고 다시 시도해 주세요. 직전 동기화(2026.10.29 21:10) 캐시 목록을 읽기 전용으로 보여드려요.</p>
+            </div>
+            <div class="space-y-2 opacity-80">
+              ${active.slice(0, 3).map(item => `
+                <div class="bg-white p-3.5 rounded-2xl border border-[#E2ECE4]">
+                  <div class="font-bold">${item.brand} · ${item.name}</div>
+                  <div class="text-[#5A6E62]">${item.deadline_badge} (캐시 보관본)</div>
+                </div>
+              `).join('')}
+            </div>
+            <button type="button" onclick="showToast('네트워크가 복구되어 최신 화장대 목록을 불러왔습니다.'); navigate('VAN-01')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">최신 목록 다시 불러오기</button>
+          </div>
+        `;
+        return;
+      }
+
+      if (s === 'STATE-08') {
+        vp.innerHTML = `
+          <div class="space-y-3.5 py-2 text-xs">
+            <div class="bg-[#FEF3C7] p-3.5 rounded-2xl border border-[#FDE68A] text-[#92400E]">
+              <div class="font-bold">로그인이 만료되었어요 (STATE-08)</div>
+              <p class="mt-0.5">안전하게 계속하려면 다시 로그인해 주세요. 작성 중이던 수정 초안(남은 양 35%, 저녁 루틴 메모)은 버리지 않고 보관했어요.</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-[#E2ECE4] space-y-2">
+              <div class="font-bold">보관된 수정 초안 · 라운드리프 수분 장벽 크림</div>
+              <div>개봉일: 2026.05.12</div>
+              <div>남은 양: 35%</div>
+              <div>메모: 저녁 루틴에 사용. 마지막 사용량을 확인했어요.</div>
+            </div>
+            <button type="button" onclick="showToast('재로그인 후 보관된 초안을 복원했습니다.'); navigate('PROD-02')" class="w-full py-3.5 rounded-2xl btn-primary font-bold text-sm">다시 로그인하고 수정 계속하기</button>
+          </div>
+        `;
+        return;
+      }
+    }
+
+    // 백엔드 서버(localhost:8000)가 켜져 있으면 실시간 헬스체크 표시
+    async function checkLocalBackend() {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/health');
+        if (res.ok) {
+          const badge = document.getElementById('api-status-badge');
+          if (badge) {
+            badge.textContent = 'FastAPI(8000) 실시간 연결됨';
+            badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-[#214E3A] text-white';
+          }
+        }
+      } catch (_) {
+        // Canvas 단독 실행 시 내장 시연 엔진으로 동작
+      }
+    }
+
+    window.onload = function () {
+      render();
+      checkLocalBackend();
+    };
+  </script>
+</body>
+</html>
