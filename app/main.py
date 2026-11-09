@@ -57,3 +57,15 @@ for prefix in [settings.API_V1_STR, ""]:
 @app.get("/health", tags=["Health"])
 def health_check():
     return {"status": "ok", "service": "CosMemo Backend", "reference_date": "2026-10-30"}
+
+
+from pathlib import Path
+from fastapi.responses import HTMLResponse
+
+@app.get("/app", response_class=HTMLResponse, tags=["iOS & Web App Demo"])
+def serve_mobile_demo_app():
+    """아이폰(iOS)·아이패드·브라우저에서 http://<PC_IP>:8000/app 접속 시 코스메모 웹앱 화면을 바로 렌더링합니다."""
+    html_file = Path(__file__).resolve().parent.parent / "cosmemo_demo_app.html"
+    if html_file.exists():
+        return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>cosmemo_demo_app.html 파일을 프로젝트 루트에 배치해 주세요.</h1>")

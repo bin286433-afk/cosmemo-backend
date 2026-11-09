@@ -1,4 +1,4 @@
-&lt;div align=&quot;center&quot;&gt;
+
 
 # 🧴 코스메모 (CosMemo: Cosmetic + Memo)
 
@@ -13,7 +13,7 @@
 
 **기초프로젝트랩 · 팀 오죠사마**
 
-&lt;/div&gt;
+
 
 ## 1. 프로젝트 배경 및 문제 정의
 
