@@ -6,13 +6,15 @@ from app.database import get_db
 from app.models import User, OwnedProduct, Evaluation
 from app.schemas import OwnedProductUpdate, OpenProductRequest
 from app.utils.security import get_current_user
-from app.utils.deadline import calculate_product_deadline, compute_d_day, REFERENCE_TODAY
+from app.utils.seasons import SEASONS, season_of
+from app.utils.timeutil import format_label
+from app.utils.deadline import calculate_product_deadline, compute_d_day, get_today
 
 router = APIRouter(tags=["B · 홈 · 내 화장대 · 제품 관리 (HOME/VAN/PROD)"])
 
 
 def serialize_owned_product(p: OwnedProduct, db: Session) -> dict:
-    d_day = compute_d_day(p.calculated_deadline, REFERENCE_TODAY)
+    d_day = compute_d_day(p.calculated_deadline)
     evals = (
         db.query(Evaluation)
         .filter(Evaluation.owned_product_id == p.id)
@@ -89,7 +91,7 @@ def get_home_dashboard(
 
     return {
         "screen_id": "HOME-01",
-        "reference_date": REFERENCE_TODAY.isoformat(),
+        "reference_date": get_today().isoformat(),
         "greeting": f"{current_user.nickname}님, 오늘도 나를 아끼는 기록.",
         "summary_counts": {
             "total_active": len(serialized),
@@ -99,10 +101,10 @@ def get_home_dashboard(
         "urgent_alert": expired_items[0] if expired_items else None,
         "upcoming_routine": routine_items,
         "seasonal_note": {
-            "season": "가을",
-            "title": "건조해지는 계절, 새 제품보다 내 기록부터.",
-            "description": f"{', '.join(current_user.skin_concerns)} 관심 프로필과 보유 성분을 기준으로 정리했어요.",
-            "target_path": "/seasonal/autumn",
+            "season": SEASONS[season_of(get_today())]["label"],
+            "title": SEASONS[season_of(get_today())]["title"],
+            "description": f"{', '.join(current_user.skin_concerns or []) or '내'} 관심 프로필과 보유 성분을 기준으로 정리했어요.",
+            "target_path": f"/seasonal/{season_of(get_today())}",
         },
     }
 
@@ -176,7 +178,7 @@ def list_vanity_products(
             "banner": {
                 "title": "연결이 잠시 끊어졌어요",
                 "description": "네트워크를 확인하고 다시 시도해 주세요. 직전 상태는 캐시 목록으로 보여드려요.",
-                "last_synced_at": "2026.10.29 21:10",
+                "last_synced_at": format_label(max((p.updated_at for p in all_active if p.updated_at), default=None)),
                 "read_only": True,
             },
             "counts": counts,
@@ -246,6 +248,15 @@ def update_owned_product(
     )
     if not product:
         raise HTTPException(status_code=404, detail="보유 제품을 찾을 수 없어요.")
+
+    # STATE-06: 같은 idempotency_key 로 재전송된 요청은 다시 적용하지 않고 현재 상태를 돌려줌
+    if payload.idempotency_key and payload.idempotency_key == product.last_idempotency_key:
+        return {
+            "screen_id": "PROD-02",
+            "message": "이미 저장된 요청이에요. 중복 저장하지 않았어요.",
+            "duplicate_request": True,
+            "product": serialize_owned_product(product, db),
+        }
 
     # 초안 데이터 우선 보존 (입력 유실 방지)
     product.draft_payload = payload.model_dump(mode="json", exclude_none=True)

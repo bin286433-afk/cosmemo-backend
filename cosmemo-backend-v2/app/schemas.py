@@ -1,6 +1,12 @@
 from datetime import date, datetime
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Literal
 from pydantic import BaseModel, EmailStr, Field
+
+# [보완] 문자열로만 받던 상태값/범위를 검증해 DB에 잘못된 값이 들어가지 않도록 함
+Category = Literal["스킨케어", "색조", "향수", "소품"]
+SkinFit = Literal["잘 맞아요", "보통", "맞지 않아요"]
+Repurchase = Literal["네, 있어요", "고민 중이에요", "아니요"]
+EndReason = Literal["다 썼어요", "기한이 지났어요", "피부에 맞지 않아요"]
 
 
 # --- A. 시작 · 계정 만들기 (AUTH-01 ~ AUTH-06) ---
@@ -24,6 +30,12 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr = Field(default="jiyun@example.com")
 
 
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(min_length=10)
+    new_password: str = Field(min_length=8)
+    new_password_confirm: str
+
+
 class SkinProfileUpdate(BaseModel):
     skin_type: str = Field(default="복합성", description="건성 | 지성 | 복합성 | 중성 | 잘 모르겠어요")
     skin_concerns: List[str] = Field(default=["건조함", "민감함"])
@@ -38,36 +50,36 @@ class PermissionOnboardingUpdate(BaseModel):
 # --- C. 영수증 및 화장품 등록 (REG-01 ~ REG-07) ---
 class ReceiptItemUpdate(BaseModel):
     item_code: str
-    brand: Optional[str] = None
-    parsed_name: str
-    category: str = "스킨케어"
-    quantity: int = 1
-    unit_price: int = 0
+    brand: Optional[str] = Field(default=None, max_length=100)
+    parsed_name: str = Field(min_length=1, max_length=200)
+    category: Category = "스킨케어"
+    quantity: int = Field(default=1, ge=1, le=99)
+    unit_price: int = Field(default=0, ge=0, le=10_000_000)
     is_selected: bool = True
     matched_catalog_code: Optional[str] = None
 
 
 class ReceiptReviewUpdateRequest(BaseModel):
-    store_name: str = "보태닉 스토어"
-    purchase_date: date = date(2026, 10, 30)
-    total_amount: int = 43300
+    store_name: str = Field(default="보태닉 스토어", max_length=100)
+    purchase_date: Optional[date] = date(2026, 10, 30)
+    total_amount: int = Field(default=43300, ge=0)
     items: List[ReceiptItemUpdate]
 
 
 class OwnedProductCreate(BaseModel):
     brand: str = "라운드리프"
     name: str = "판테놀 세럼"
-    category: str = "스킨케어"
-    volume: str = "30 ml"
+    category: Category = "스킨케어"
+    volume: Optional[str] = "30 ml"
     main_ingredients: List[str] = ["판테놀", "베타인"]
     purchase_date: Optional[date] = date(2026, 10, 29)
-    quantity: int = 1
-    status: str = "unopened"  # unopened | in_use
+    quantity: int = Field(default=1, ge=1, le=99)
+    status: Literal["unopened", "in_use"] = "unopened"
     opened_date: Optional[date] = None
     printed_expiry_date: Optional[date] = date(2027, 8, 31)
-    pao_months: Optional[int] = 12
+    pao_months: Optional[int] = Field(default=12, ge=1, le=60)
     purchase_store: Optional[str] = "올리브영 강남점"
-    purchase_price: Optional[int] = 22000
+    purchase_price: Optional[int] = Field(default=22000, ge=0)
     receipt_code: Optional[str] = "R-031"
     memo: Optional[str] = None
     catalog_code: Optional[str] = None
@@ -76,37 +88,37 @@ class OwnedProductCreate(BaseModel):
 class OwnedProductUpdate(BaseModel):
     brand: Optional[str] = None
     name: Optional[str] = None
-    category: Optional[str] = None
+    category: Optional[Category] = None
     volume: Optional[str] = None
     main_ingredients: Optional[List[str]] = None
     purchase_date: Optional[date] = None
     opened_date: Optional[date] = None
     printed_expiry_date: Optional[date] = None
-    pao_months: Optional[int] = None
-    remaining_percent: Optional[int] = None
-    purchase_price: Optional[int] = None
+    pao_months: Optional[int] = Field(default=None, ge=1, le=60)
+    remaining_percent: Optional[int] = Field(default=None, ge=0, le=100)
+    purchase_price: Optional[int] = Field(default=None, ge=0)
     memo: Optional[str] = None
     idempotency_key: Optional[str] = None
 
 
 class OpenProductRequest(BaseModel):
     opened_date: date = date(2026, 10, 30)
-    pao_months: Optional[int] = 12
+    pao_months: Optional[int] = Field(default=12, ge=1, le=60)
 
 
 # --- D. 개인 평가 (REV-01 ~ REV-02) ---
 class EvaluationCreateUpdate(BaseModel):
     rating: float = Field(default=4.0, ge=1.0, le=5.0)
-    skin_fit: str = Field(default="잘 맞아요", description="잘 맞아요 | 보통 | 맞지 않아요")
+    skin_fit: SkinFit = Field(default="잘 맞아요", description="잘 맞아요 | 보통 | 맞지 않아요")
     reactions: List[str] = Field(default=["촉촉해요", "편안해요"])
-    repurchase_intent: str = Field(default="네, 있어요", description="네, 있어요 | 고민 중이에요 | 아니요")
+    repurchase_intent: Repurchase = Field(default="네, 있어요", description="네, 있어요 | 고민 중이에요 | 아니요")
     memo: Optional[str] = "저녁에 바르기 좋았어요. 건조함이 덜 느껴져요."
     evaluated_date: date = date(2026, 10, 20)
 
 
 # --- E. 비우기 · 분리배출 (DIS-01 ~ DIS-04) ---
 class DisposalCreateRequest(BaseModel):
-    reason: str = Field(default="다 썼어요", description="다 썼어요 | 기한이 지났어요 | 피부에 맞지 않아요")
+    reason: EndReason = Field(default="다 썼어요", description="다 썼어요 | 기한이 지났어요 | 피부에 맞지 않아요")
     ended_date: date = date(2026, 10, 30)
     remaining_at_end: str = "0% · 모두 사용했어요"
     memo: Optional[str] = "끝까지 잘 사용했어요. 공병 씻기 전에 배출 방법 확인."
@@ -114,9 +126,9 @@ class DisposalCreateRequest(BaseModel):
 
 # --- F. 커뮤니티 (COM-01 ~ COM-03) ---
 class CommunityPostCreate(BaseModel):
-    post_type: str = Field(default="후기", description="질문 | 추천 | 후기")
-    title: str
-    body: str
+    post_type: Literal["질문", "추천", "후기"] = Field(default="후기", description="질문 | 추천 | 후기")
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=5000)
     related_owned_code: Optional[str] = "OWN-101"
     include_quote: bool = True
     include_rating: bool = False
@@ -126,14 +138,14 @@ class CommunityPostCreate(BaseModel):
 
 
 class CommunityCommentCreate(BaseModel):
-    body: str
+    body: str = Field(min_length=1, max_length=1000)
 
 
 # --- G. 마이 · 알림 설정 · 계정 관리 (MY-01 ~ MY-03) ---
 class NotificationSettingUpdate(BaseModel):
     notify_expiry_enabled: bool = True
-    notify_expiry_days: List[int] = [30, 7]
-    notify_time: str = "09:00"
+    notify_expiry_days: List[int] = Field(default=[30, 7], max_length=5)
+    notify_time: str = Field(default="09:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     notify_seasonal: bool = True
     notify_community: bool = False
     notify_evaluation: bool = True

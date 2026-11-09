@@ -1,8 +1,19 @@
 from datetime import date
 from typing import Optional, Tuple
 import calendar
+from app.config import settings
 
-REFERENCE_TODAY = date(2026, 10, 30)  # UI 시안 기준일 (2026.10.30)
+
+def get_today() -> date:
+    """
+    [보완] 기존에는 date(2026, 10, 30)이 하드코딩되어 실제 서비스에서 D-Day가 영원히 고정됐습니다.
+    .env 의 REFERENCE_DATE 로 시연 기준일을 지정하고, 비워두면 실제 오늘 날짜를 씁니다.
+    """
+    return settings.reference_today()
+
+
+# 하위 호환용 (기존 import 유지). 새 코드는 get_today()를 사용하세요.
+REFERENCE_TODAY = get_today()
 
 
 def add_months(sourcedate: date, months: int) -> date:
@@ -31,7 +42,7 @@ def calculate_product_deadline(
             return printed_expiry_date, "개봉 전 인쇄 사용 기한 기준"
         return None, "기한 확인 필요 · 미개봉"
 
-    pao_deadline = add_months(opened_date, pao_months) if (opened_date and pao_months) else None
+    pao_deadline = add_months(opened_date, pao_months) if (opened_date and pao_months and pao_months > 0) else None
 
     if printed_expiry_date and pao_deadline:
         if pao_deadline <= printed_expiry_date:
@@ -46,7 +57,7 @@ def calculate_product_deadline(
         return None, "기한 확인 필요 · PAO 미등록"
 
 
-def compute_d_day(deadline: Optional[date], today: date = REFERENCE_TODAY) -> Optional[int]:
+def compute_d_day(deadline: Optional[date], today: Optional[date] = None) -> Optional[int]:
     if not deadline:
         return None
-    return (deadline - today).days
+    return (deadline - (today or get_today())).days

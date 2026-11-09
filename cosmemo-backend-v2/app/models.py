@@ -1,9 +1,15 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Float, Date, DateTime, ForeignKey, Text, JSON
+    Column, Integer, String, Boolean, Float, Date, DateTime, ForeignKey, Text, JSON,
+    UniqueConstraint, Index,
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
+
+
+def _utcnow() -> datetime:
+    # datetime.utcnow()는 Python 3.12부터 deprecated → timezone-aware 값을 naive UTC로 저장
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class User(Base):
@@ -37,7 +43,10 @@ class User(Base):
     notify_community = Column(Boolean, default=False)
     notify_evaluation = Column(Boolean, default=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # 로그아웃(전체 기기) 시 +1 → 이전에 발급된 토큰 전부 무효
+    token_version = Column(Integer, default=0, nullable=True)
+
+    created_at = Column(DateTime, default=_utcnow)
 
     owned_products = relationship("OwnedProduct", back_populates="user", cascade="all, delete-orphan")
     receipts = relationship("ReceiptDraft", back_populates="user", cascade="all, delete-orphan")
@@ -96,8 +105,8 @@ class OwnedProduct(Base):
     last_idempotency_key = Column(String(100), nullable=True)
     draft_payload = Column(JSON, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     user = relationship("User", back_populates="owned_products")
     catalog = relationship("CatalogProduct")
@@ -115,12 +124,25 @@ class ReceiptDraft(Base):
     purchase_date = Column(Date, nullable=True)
     total_amount = Column(Integer, default=0)
     # 상태: processing, review, review_error, ocr_failed, completed
-    status = Column(String(30), default="review")
+    status = Column(String(30), default="review", index=True)
     image_url = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # [보완] OCR 추적·재처리용 컬럼
+    image_sha256 = Column(String(64), nullable=True)  # 같은 영수증 중복 업로드 감지 (STATE-06)
+    raw_text = Column(Text, nullable=True)            # OCR 원문 (파싱 오류 디버깅·재파싱용)
+    ocr_engine = Column(String(80), nullable=True)    # gemini / tesseract / client-text / manual
+    ocr_confidence = Column(Float, nullable=True)     # 0~1, 파서가 스스로 매긴 신뢰도
+    ocr_warnings = Column(JSON, nullable=True)        # ["합계 금액과 품목 합이 달라요", ...]
+    printed_total = Column(Integer, nullable=True)    # 영수증에 인쇄된 '합계' 금액 (검증용)
+    discount_total = Column(Integer, nullable=True)   # 할인 합계
+    committed_at = Column(DateTime, nullable=True)    # 화장대 반영 시각 (중복 반영 방지)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (Index("ix_receipt_user_hash", "user_id", "image_sha256"),)
 
     user = relationship("User", back_populates="receipts")
-    items = relationship("ReceiptItem", back_populates="receipt", cascade="all, delete-orphan")
+    items = relationship("ReceiptItem", back_populates="receipt", cascade="all, delete-orphan", order_by="ReceiptItem.id")
 
 
 class ReceiptItem(Base):
@@ -138,6 +160,11 @@ class ReceiptItem(Base):
     is_cosmetic = Column(Boolean, default=True)  # 화장품 외 항목 제외 (화장솜 등)
     is_selected = Column(Boolean, default=True)
     matched_catalog_code = Column(String(30), nullable=True)
+    match_score = Column(Float, nullable=True)        # [보완] 카탈로그 매칭 점수 (0~1)
+    line_total = Column(Integer, nullable=True)       # [보완] 줄 금액 (단가 × 수량)
+    owned_product_code = Column(String(30), nullable=True)  # [보완] 화장대 반영 후 생성된 OWN 코드
+
+    __table_args__ = (UniqueConstraint("receipt_id", "code", name="uq_receipt_item_code"),)
 
     receipt = relationship("ReceiptDraft", back_populates="items")
 
@@ -157,7 +184,7 @@ class Evaluation(Base):
     memo = Column(Text, nullable=True)
     evaluated_date = Column(Date, default=date.today)
     is_public = Column(Boolean, default=False)          # 기본 비공개 (REV-01)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="evaluations")
     owned_product = relationship("OwnedProduct", back_populates="evaluations")
@@ -176,7 +203,7 @@ class DisposalRecord(Base):
     remaining_at_end = Column(String(50), default="0% · 모두 사용했어요")
     memo = Column(Text, nullable=True)
     disposal_completed = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="disposals")
     owned_product = relationship("OwnedProduct", back_populates="disposal")
@@ -207,8 +234,13 @@ class Notification(Base):
     target_path = Column(String(200), nullable=True)
     related_owned_code = Column(String(30), nullable=True)
     is_read = Column(Boolean, default=False)
-    created_label = Column(String(50), default="오늘 오전 9:00")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_label = Column(String(50), nullable=True)   # 시드 데이터용 고정 라벨 (없으면 created_at 으로 계산)
+    # 같은 알림을 두 번 만들지 않기 위한 키 (예: EXP:OWN-101:2026-11-12:7)
+    dedupe_key = Column(String(120), nullable=True)
+    push_sent = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "dedupe_key", name="uq_notification_dedupe"),)
 
     user = relationship("User", back_populates="notifications")
 
@@ -231,8 +263,8 @@ class CommunityPost(Base):
 
     like_count = Column(Integer, default=0)
     is_draft = Column(Boolean, default=False)
-    created_label = Column(String(50), default="2026.10.30 10:20")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_label = Column(String(50), nullable=True)  # 시드용 고정 라벨, 없으면 created_at 으로 계산
+    created_at = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="posts")
     comments = relationship("CommunityComment", back_populates="post", cascade="all, delete-orphan")
@@ -247,8 +279,31 @@ class CommunityComment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     author_nickname = Column(String(50), nullable=False)
     body = Column(Text, nullable=False)
-    created_label = Column(String(50), default="10.30 10:40")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_label = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
 
     post = relationship("CommunityPost", back_populates="comments")
     user = relationship("User", back_populates="comments")
+
+
+class RevokedToken(Base):
+    """로그아웃한 기기의 토큰(jti) 목록 — 만료 시각이 지나면 스케줄러가 정리"""
+    __tablename__ = "revoked_tokens"
+
+    id = Column(Integer, primary_key=True)
+    jti = Column(String(64), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class PasswordResetToken(Base):
+    """비밀번호 재설정 링크 토큰 (원문은 메일로만, DB에는 해시만 저장)"""
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)

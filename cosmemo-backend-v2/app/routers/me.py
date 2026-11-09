@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, OwnedProduct, Evaluation, Notification, CommunityPost
 from app.schemas import NotificationSettingUpdate, AccountUpdateRequest, AccountDeleteRequest
-from app.utils.security import get_current_user
+from app.utils.security import get_current_user, get_authenticated_user, get_token, revoke_token
+from app.utils.timeutil import format_label
+from app.services.notifications import generate_for_user, run_notification_job
 
 router = APIRouter(tags=["G · 마이 · 알림 환경 · 개인정보 (MY/NOTI)"])
 
@@ -15,10 +17,11 @@ def list_notifications(
     current_user: User = Depends(get_current_user),
 ):
     """화면 NOTI-01 (/notifications): 알림함 조회"""
+    generate_for_user(db, current_user)  # 알림함을 열 때도 최신 상태로 (스케줄러가 꺼져 있어도 동작)
     notis = (
         db.query(Notification)
         .filter(Notification.user_id == current_user.id)
-        .order_by(Notification.id.asc())
+        .order_by(Notification.created_at.desc(), Notification.id.desc())
         .all()
     )
     unread_count = sum(1 for n in notis if not n.is_read)
@@ -37,11 +40,40 @@ def list_notifications(
                 "target_path": n.target_path,
                 "related_owned_code": n.related_owned_code,
                 "is_read": n.is_read,
-                "created_label": n.created_label,
+                "created_label": n.created_label or format_label(n.created_at),
             }
             for n in notis
         ],
     }
+
+
+@router.post("/notifications/{noti_code}/read")
+def mark_notification_read(
+    noti_code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """알림 하나를 눌렀을 때 읽음 처리하고 이동할 경로를 돌려줌"""
+    n = db.query(Notification).filter(Notification.code == noti_code, Notification.user_id == current_user.id).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="알림을 찾을 수 없어요.")
+    n.is_read = True
+    db.commit()
+    unread = db.query(Notification).filter(Notification.user_id == current_user.id, Notification.is_read == False).count()  # noqa: E712
+    return {"code": n.code, "is_read": True, "target_path": n.target_path, "unread_count": unread}
+
+
+@router.post("/notifications/run")
+def run_notifications_now(
+    all_users: bool = Query(default=False, description="true 면 전체 사용자 대상 (스케줄러 1회 실행과 동일)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """시연·점검용: 스케줄러를 기다리지 않고 알림 생성 작업을 바로 실행"""
+    if all_users:
+        return {"screen_id": "NOTI-01", **run_notification_job(db)}
+    created = generate_for_user(db, current_user)
+    return {"screen_id": "NOTI-01", "created": len(created), "items": [{"code": n.code, "title": n.title} for n in created]}
 
 
 @router.post("/notifications/read-all")
@@ -168,8 +200,13 @@ def update_my_account(
 
 
 @router.post("/me/logout")
-def logout_current_device():
-    """화면 MY-03 ('이 기기에서 로그아웃할까요?'): 계정 데이터는 유지하고 기기 세션만 종료"""
+def logout_current_device(
+    token: str = Depends(get_token),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_authenticated_user),
+):
+    """화면 MY-03 ('이 기기에서 로그아웃할까요?'): 이 토큰만 무효화 (다른 기기는 유지)"""
+    revoke_token(db, token, current_user)
     return {
         "screen_id": "MY-03",
         "next_screen": "AUTH-02",
@@ -177,11 +214,22 @@ def logout_current_device():
     }
 
 
+@router.post("/me/logout-all")
+def logout_all_devices(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_authenticated_user),
+):
+    """모든 기기에서 로그아웃: token_version 을 올려 지금까지 발급된 토큰을 모두 무효화"""
+    current_user.token_version = (current_user.token_version or 0) + 1
+    db.commit()
+    return {"screen_id": "MY-03", "next_screen": "AUTH-02", "message": "모든 기기에서 로그아웃되었어요."}
+
+
 @router.delete("/me/account")
 def delete_my_account(
     payload: AccountDeleteRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_authenticated_user),  # 토큰 없이 시드 사용자를 지워버리는 사고 방지
 ):
     """화면 MY-03 ('계정과 기록을 삭제할까요?'): '탈퇴' 문구 및 체크박스 확인 후 전체 데이터 영구 삭제"""
     if payload.confirm_text.strip() != "탈퇴" or not payload.confirmed_irreversible:

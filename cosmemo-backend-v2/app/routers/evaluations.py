@@ -4,8 +4,9 @@ from app.database import get_db
 from app.models import User, OwnedProduct, Evaluation
 from app.schemas import EvaluationCreateUpdate
 from app.utils.security import get_current_user
-from app.utils.deadline import REFERENCE_TODAY
+from app.utils.deadline import get_today
 from app.routers.vanity import serialize_owned_product
+from app.utils.codes import next_code
 
 router = APIRouter(tags=["D · 개인 평가 · 사용 기한 · 알림 (REV/EXP/NOTI)"])
 
@@ -75,9 +76,8 @@ def save_evaluation(
     if not product:
         raise HTTPException(status_code=404, detail="보유 제품을 찾을 수 없어요.")
 
-    next_num = 101 + db.query(Evaluation).count()
     ev = Evaluation(
-        code=f"EVAL-{next_num}",
+        code=next_code(db, Evaluation, "EVAL", start=100, width=3),
         user_id=current_user.id,
         owned_product_id=product.id,
         rating=payload.rating,
@@ -137,7 +137,7 @@ def get_deadlines_management(
 
     return {
         "screen_id": "EXP-01",
-        "reference_date": REFERENCE_TODAY.isoformat(),
+        "reference_date": get_today().isoformat(),
         "total_active": len(items),
         "counts": {
             "expired": len(expired),

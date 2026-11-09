@@ -6,6 +6,11 @@ from app.models import User, OwnedProduct, Evaluation, CommunityPost, CommunityC
 from app.schemas import CommunityPostCreate, CommunityCommentCreate
 from app.utils.security import get_current_user
 from app.routers.vanity import serialize_owned_product
+from app.utils.codes import next_code
+from app.utils.deadline import get_today
+from app.utils.seasons import SEASONS, season_of
+from app.utils.timeutil import format_label
+from app.services.recommendations import build_recommendations, community_reference, seasonal_products
 
 router = APIRouter(tags=["F · 부가 기능 · 추천 · 계절 케어 · 커뮤니티 (REC/SEA/COM)"])
 
@@ -15,67 +20,45 @@ def get_personal_recommendations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """화면 REC-01 (/recommendations): 내 기록 기반 추천 우선 제시 + 커뮤니티 참고 예시 분리"""
-    owned_list = (
-        db.query(OwnedProduct)
-        .filter(OwnedProduct.user_id == current_user.id)
-        .all()
-    )
-    toner = next((p for p in owned_list if p.code == "OWN-102"), None)
-    bad_gel = next((p for p in owned_list if p.code == "OWN-098"), None)
-
-    return {
+    """화면 REC-01 (/recommendations): 내 평가 기록으로 점수를 매겨 추천 (시드 제품 코드에 의존하지 않음)"""
+    ser = lambda p: serialize_owned_product(p, db)  # noqa: E731
+    rec = build_recommendations(db, current_user, ser)
+    rec.update({
         "screen_id": "REC-01",
         "title": "유행보다, 나에게 남은 좋은 기록.",
-        "primary_recommendation": {
-            "badge": "MY RECORD FIRST",
-            "product": serialize_owned_product(toner, db) if toner else None,
-            "reason": "10.15 평가에서 재구매 의향을 남겼어요. 아직 60% 남아 있어 먼저 보유 제품을 확인해요.",
-        },
-        "evidence_used": {
-            "satisfaction": "최근 평가와 재구매 의향 (5.0 · 잘 맞아요)",
-            "skin_profile": f"직접 선택한 {current_user.skin_type} · {', '.join(current_user.skin_concerns)}",
-            "mismatched_history": f"{bad_gel.name} · 2.0 / 맞지 않아요 · 따가웠어요" if bad_gel else "없음",
-            "disclaimer": "성분만으로 안전성이나 피부 적합도를 예측하지 않아요.",
-        },
         "insufficient_record_rule": "기록이 충분하지 않을 때는 '추천을 준비하고 있어요'로 표시하고 내 평가를 먼저 안내해요.",
-        "community_reference_example": {
-            "name": "소프트 클렌징 밤",
-            "average_rating": 4.2,
-            "review_count": 12,
-            "notice": "예시 후기 12건 · 실제 서비스 집계치가 아니에요. 개인별 반응은 다를 수 있어요.",
-        },
-    }
+        "community_reference": community_reference(db),
+    })
+    return rec
 
 
 @router.get("/seasonal/{season}")
 def get_seasonal_care_guide(
-    season: str = "autumn",
+    season: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """화면 SEA-01 (/seasonal/autumn): 계절별 케어 안내 및 관련 보유 제품 연결"""
-    cream = (
-        db.query(OwnedProduct)
-        .filter(OwnedProduct.user_id == current_user.id, OwnedProduct.code == "OWN-101")
-        .first()
-    )
+    """화면 SEA-01 (/seasonal/autumn | spring | summer | winter | current): 계절별 안내 + 해당 성분이 있는 내 보유 제품"""
+    key = season_of(get_today()) if season == "current" else season
+    if key not in SEASONS:
+        raise HTTPException(status_code=404, detail="season 은 spring · summer · autumn · winter · current 중 하나예요.")
+    cfg = SEASONS[key]
+    related = seasonal_products(db, current_user, cfg["ingredients"])
+    matched_ings = sorted({i for _, hits in related for i in hits})
+    concerns = [c for c in (current_user.skin_concerns or [])]
+    why = (
+        f"선택한 관심사 '{', '.join(concerns)}'과 " if concerns else ""
+    ) + (f"보유 제품에 기록된 {'·'.join(matched_ings)}을 기준으로 정리했어요." if matched_ings
+         else f"{cfg['label']}에 자주 보는 성분이 내 화장대에는 아직 없어요. 새로 사기 전에 내 기록부터 확인해요.")
     return {
         "screen_id": "SEA-01",
-        "season": season,
-        "title": "찬 바람이 불면, 루틴도 천천히.",
-        "why_shown": f"선택한 관심사 '{', '.join(current_user.skin_concerns)}'과 보유 제품에 기록된 판테놀·세라마이드를 기준으로 정리했어요.",
-        "tips": [
-            {
-                "step": "01 · 보습 관련 성분을 확인해요",
-                "body": "판테놀·히알루론산·세라마이드는 보습 제품에서 자주 볼 수 있어요. 성분명 하나보다 실제 사용감과 내 기록을 함께 확인해요.",
-            },
-            {
-                "step": "02 · 변화를 메모해요",
-                "body": "건조함이나 불편함이 느껴졌다면 사용 시점과 함께 기록해요. 여러 제품을 동시에 바꾸기보다 변화를 구별해 보세요.",
-            },
-        ],
-        "related_owned_products": [serialize_owned_product(cream, db)] if cream else [],
+        "season": key,
+        "season_label": cfg["label"],
+        "title": cfg["title"],
+        "why_shown": why,
+        "profile_match": [c for c in concerns if c in cfg["focus_concerns"]],
+        "tips": cfg["tips"],
+        "related_owned_products": [{**serialize_owned_product(p, db), "matched_ingredients": hits} for p, hits in related],
         "medical_disclaimer": "일반적인 정보 안내예요. 진단이나 치료를 위한 안내가 아니며 개인별 반응은 다를 수 있어요.",
     }
 
@@ -90,7 +73,7 @@ def list_community_posts(
     posts = (
         db.query(CommunityPost)
         .filter(CommunityPost.is_draft == False)
-        .order_by(CommunityPost.id.asc())
+        .order_by(CommunityPost.created_at.desc(), CommunityPost.id.desc())
         .all()
     )
     if type != "all":
@@ -109,8 +92,8 @@ def list_community_posts(
                 "post_type": p.post_type,
                 "title": p.title,
                 "excerpt": p.body[:80],
-                "author_nickname": p.user.nickname if p.user else "지윤",
-                "created_label": p.created_label,
+                "author_nickname": p.user.nickname if p.user else "탈퇴한 사용자",
+                "created_label": p.created_label or format_label(p.created_at),
                 "comment_count": len(p.comments),
                 "like_count": p.like_count,
             }
@@ -125,7 +108,7 @@ def get_community_post_detail(
     db: Session = Depends(get_db),
 ):
     """화면 COM-02 (/community/P-01): 게시글 상세 및 댓글 조회"""
-    post = db.query(CommunityPost).filter(CommunityPost.code == post_code).first()
+    post = db.query(CommunityPost).filter(CommunityPost.code == post_code, CommunityPost.is_draft == False).first()  # noqa: E712
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없어요.")
 
@@ -135,8 +118,8 @@ def get_community_post_detail(
         "post_type": post.post_type,
         "title": post.title,
         "body": post.body,
-        "author_nickname": post.user.nickname if post.user else "지윤",
-        "created_label": post.created_label,
+        "author_nickname": post.user.nickname if post.user else "탈퇴한 사용자",
+        "created_label": post.created_label or format_label(post.created_at),
         "shared_quote": post.shared_quote,
         "shared_rating": post.shared_rating,
         "shared_reactions": post.shared_reactions,
@@ -147,7 +130,7 @@ def get_community_post_detail(
                 "code": c.code,
                 "author_nickname": c.author_nickname,
                 "body": c.body,
-                "created_label": c.created_label,
+                "created_label": c.created_label or format_label(c.created_at),
             }
             for c in post.comments
         ],
@@ -196,9 +179,8 @@ def create_community_post(
                 if payload.include_reactions:
                     shared_reactions = latest_eval.reactions
 
-    next_num = 1 + db.query(CommunityPost).count()
     post = CommunityPost(
-        code=f"P-{next_num:02d}",
+        code=next_code(db, CommunityPost, "P", start=1, width=2),
         user_id=current_user.id,
         post_type=payload.post_type,
         title=payload.title,
@@ -209,7 +191,7 @@ def create_community_post(
         shared_rating=shared_rating,
         shared_reactions=shared_reactions,
         is_draft=payload.is_draft,
-        created_label="2026.10.30 11:00",
+        created_label=None,
     )
     db.add(post)
     db.commit()
@@ -257,14 +239,13 @@ def create_comment(
     if not post:
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없어요.")
 
-    next_num = 1 + db.query(CommunityComment).count()
     comment = CommunityComment(
-        code=f"C-{next_num:02d}",
+        code=next_code(db, CommunityComment, "C", start=1, width=2),
         post_id=post.id,
         user_id=current_user.id,
         author_nickname=current_user.nickname,
         body=payload.body,
-        created_label="10.30 11:10",
+        created_label=None,
     )
     db.add(comment)
     db.commit()
@@ -273,5 +254,5 @@ def create_comment(
         "code": comment.code,
         "author_nickname": comment.author_nickname,
         "body": comment.body,
-        "created_label": comment.created_label,
+        "created_label": format_label(comment.created_at),
     }

@@ -24,3 +24,8 @@ Thumbs.db
 # Uploads & Logs
 uploads/
 *.log
+
+# SQLite WAL 파일 & 테스트 캐시
+*.db-wal
+*.db-shm
+.pytest_cache/

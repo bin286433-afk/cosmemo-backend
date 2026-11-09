@@ -25,6 +25,8 @@ def record_product_end(
     )
     if not product:
         raise HTTPException(status_code=404, detail="보유 제품을 찾을 수 없어요.")
+    if product.status == "archived":
+        raise HTTPException(status_code=409, detail="이미 지난 제품 보관함에 있는 제품이에요.")
 
     existing = db.query(DisposalRecord).filter(DisposalRecord.owned_product_id == product.id).first()
     if existing:
@@ -46,7 +48,7 @@ def record_product_end(
         )
         db.add(record)
 
-    if "0%" in payload.remaining_at_end:
+    if payload.remaining_at_end.strip().startswith("0%"):
         product.remaining_percent = 0
     db.commit()
     db.refresh(record)
@@ -76,7 +78,7 @@ def get_disposal_guide(
         .first()
     )
     if not product:
-        product = db.query(OwnedProduct).filter(OwnedProduct.code == "OWN-101").first()
+        raise HTTPException(status_code=404, detail="분리배출 안내를 찾을 수 없어요.")
 
     guide = (
         product.catalog.disposal_guide
@@ -114,13 +116,22 @@ def complete_disposal_and_archive(
     if not product:
         raise HTTPException(status_code=404, detail="보유 제품을 찾을 수 없어요.")
 
+    if not product.disposal:
+        raise HTTPException(status_code=409, detail="먼저 사용 종료 사유를 기록해 주세요. (POST /owned/{code}/end)")
+
     product.status = "archived"
     product.remaining_percent = 0
-    if product.disposal:
-        product.disposal.disposal_completed = True
+    product.disposal.disposal_completed = True
 
     db.commit()
     db.refresh(product)
+
+    latest_eval = (
+        db.query(Evaluation).filter(Evaluation.owned_product_id == product.id)
+        .order_by(Evaluation.evaluated_date.desc(), Evaluation.id.desc()).first()
+    )
+    active_cnt = db.query(OwnedProduct).filter(OwnedProduct.user_id == current_user.id, OwnedProduct.status != "archived").count()
+    archived_cnt = db.query(OwnedProduct).filter(OwnedProduct.user_id == current_user.id, OwnedProduct.status == "archived").count()
 
     return {
         "screen_id": "DIS-04",
@@ -128,10 +139,10 @@ def complete_disposal_and_archive(
         "title": "잘 썼고, 잘 비웠어요",
         "message": f"{product.name}을 지난 제품 보관함으로 옮겼어요. 기록은 사라지지 않아요.",
         "summary": {
-            "reason": f"{product.disposal.reason if product.disposal else '다 썼어요'} · 잔량 0%",
-            "completed_date": "2026-10-30",
-            "evaluation_preserved": "4.0 · 잘 맞아요 · 유지됨",
-            "remaining_active_notice": "활성 5개 / 지난 제품 3개",
+            "reason": f"{product.disposal.reason} · 잔량 0%",
+            "completed_date": product.disposal.ended_date.isoformat(),
+            "evaluation_preserved": f"{latest_eval.rating} · {latest_eval.skin_fit} · 유지됨" if latest_eval else "평가 기록 없음",
+            "remaining_active_notice": f"활성 {active_cnt}개 / 지난 제품 {archived_cnt}개",
         },
     }
 
@@ -189,7 +200,7 @@ def list_archived_products(
             continue
         item = serialize_owned_product(p, db)
         item["archive_reason"] = disp_reason
-        item["ended_date"] = p.disposal.ended_date.isoformat() if p.disposal else "2026-10-30"
+        item["ended_date"] = p.disposal.ended_date.isoformat() if p.disposal else None
         results.append(item)
 
     return {
@@ -200,6 +211,10 @@ def list_archived_products(
     }
 
 
+def _norm(s: str) -> str:
+    return (s or "").replace(" ", "").lower()
+
+
 @router.get("/precheck")
 def precheck_before_purchase(
     q: str = Query(default="진정 토너", description="구매 전 검색어 (예: 진정 토너, 달빛 앰플)"),
@@ -207,74 +222,69 @@ def precheck_before_purchase(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """화면 BUY-01 (/precheck?q=진정토너) 및 STATE-02 (/precheck?q=달빛앰플&state=no-results)"""
+    """
+    화면 BUY-01 / STATE-02: 사려는 제품과 '같은 제품 / 비슷한 제품(같은 카테고리+겹치는 성분)'을 내 화장대에서 찾고,
+    과거에 맞지 않았던 제품 중 성분이 겹치는 것만 경고합니다.
+    """
     q_clean = q.strip()
-    catalogs = (
-        db.query(CatalogProduct)
-        .filter(
-            (CatalogProduct.name.ilike(f"%{q_clean}%"))
-            | (CatalogProduct.brand.ilike(f"%{q_clean}%"))
-            | (CatalogProduct.category.ilike(f"%{q_clean}%"))
-        )
-        .all()
-    )
+    q_norm = _norm(q_clean)
+    catalogs = db.query(CatalogProduct).all()
+    if search_by == "주요 성분":
+        matched_cats = [c for c in catalogs if any(q_norm in _norm(i) for i in (c.main_ingredients or []))]
+    elif search_by == "카테고리":
+        matched_cats = [c for c in catalogs if q_norm == _norm(c.category)]
+    else:
+        matched_cats = [c for c in catalogs if q_norm in _norm(c.name) or q_norm in _norm(c.brand) or _norm(c.name) in q_norm]
+    target = matched_cats[0] if matched_cats else None
+    target_ings = set(target.main_ingredients or []) if target else set()
 
-    owned_all = (
-        db.query(OwnedProduct)
-        .filter(OwnedProduct.user_id == current_user.id)
-        .all()
-    )
-    similar_owned = [
-        serialize_owned_product(p, db)
-        for p in owned_all
-        if p.status != "archived"
-        and (
-            q_clean in p.name
-            or q_clean in p.brand
-            or (catalogs and p.category == catalogs[0].category)
-        )
-    ]
-
-    mismatched_history = []
+    owned_all = db.query(OwnedProduct).filter(OwnedProduct.user_id == current_user.id).all()
+    same, similar = [], []
     for p in owned_all:
+        if p.status == "archived":
+            continue
+        is_same = (target and (p.catalog_id == target.id or (_norm(p.brand) == _norm(target.brand) and _norm(p.name) == _norm(target.name)))) \
+            or (not target and (q_norm in _norm(p.name) or q_norm in _norm(p.brand)))
+        if is_same:
+            same.append(p)
+            continue
+        shared = sorted(set(p.main_ingredients or []) & target_ings)
+        if target and p.category == target.category and shared:
+            similar.append((p, shared))
+
+    warnings = []
+    for p in owned_all:
+        shared = sorted(set(p.main_ingredients or []) & target_ings) if target else []
         for ev in p.evaluations:
-            if ev.skin_fit == "맞지 않아요":
-                mismatched_history.append({
-                    "owned_code": p.code,
-                    "brand": p.brand,
-                    "name": p.name,
-                    "rating": ev.rating,
-                    "skin_fit": ev.skin_fit,
-                    "reactions": ev.reactions,
-                    "warning": f"{p.name} · {ev.rating} / {ev.skin_fit}. 같은 {p.category} 중심의 겹치는 성분을 식히기 전에 확인해요.",
+            if ev.skin_fit == "맞지 않아요" and (shared or (target and p.category == target.category)):
+                warnings.append({
+                    "owned_code": p.code, "brand": p.brand, "name": p.name, "rating": ev.rating,
+                    "skin_fit": ev.skin_fit, "reactions": ev.reactions, "shared_ingredients": shared,
+                    "warning": f"{p.name} · {ev.rating} / {ev.skin_fit}."
+                               + (f" {', '.join(shared)} 성분이 겹쳐요. 사기 전에 전체 성분을 확인해요." if shared else " 같은 카테고리 제품이에요."),
                 })
 
-    if not catalogs and not similar_owned:
+    if not target and not same:
         return {
-            "screen_id": "STATE-02",
-            "state": "no-results",
-            "query": q,
+            "screen_id": "STATE-02", "state": "no-results", "query": q,
             "title": "찾는 제품이 아직 없어요",
             "message": f"'{q}'로 찾은 제품과 보유 기록이 없어요. 브랜드명을 빼거나 다른 제품명으로 검색해 보세요.",
-            "candidate_catalog": None,
-            "similar_owned": [],
-            "mismatched_warnings": [],
+            "candidate_catalog": None, "same_owned": [], "similar_owned": [], "mismatched_warnings": [],
         }
 
-    target_cat = catalogs[0] if catalogs else None
     return {
         "screen_id": "BUY-01",
         "query": q,
         "candidate_catalog": {
-            "catalog_code": target_cat.code,
-            "brand": target_cat.brand,
-            "name": target_cat.name,
-            "category": target_cat.category,
-            "volume": target_cat.volume,
-            "main_ingredients": target_cat.main_ingredients,
-        } if target_cat else None,
-        "similar_owned": similar_owned,
-        "mismatched_warnings": mismatched_history,
+            "catalog_code": target.code, "brand": target.brand, "name": target.name, "category": target.category,
+            "volume": target.volume, "main_ingredients": target.main_ingredients,
+        } if target else None,
+        "other_candidates": [{"catalog_code": c.code, "brand": c.brand, "name": c.name} for c in matched_cats[1:5]],
+        "same_owned": [serialize_owned_product(p, db) for p in same],
+        "similar_owned": [serialize_owned_product(p, db) for p in same] + [
+            {**serialize_owned_product(p, db), "shared_ingredients": sh} for p, sh in similar
+        ],
+        "mismatched_warnings": warnings,
     }
 
 
@@ -285,7 +295,7 @@ def compare_candidate_with_owned(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """화면 BUY-02 (/precheck/compare?candidate=CAT-02&owned=OWN-102): 구매 후보 vs 보유 제품 나란히 비교"""
+    """화면 BUY-02: 구매 후보 vs 보유 제품 나란히 비교 — 같은 제품인지 실제로 판정해 배너 문구 결정"""
     cat = db.query(CatalogProduct).filter(CatalogProduct.code == candidate).first()
     own = (
         db.query(OwnedProduct)
@@ -295,19 +305,26 @@ def compare_candidate_with_owned(
     if not cat or not own:
         raise HTTPException(status_code=404, detail="비교할 제품 정보를 찾을 수 없어요.")
 
+    same = own.catalog_id == cat.id or (_norm(own.brand) == _norm(cat.brand) and _norm(own.name) == _norm(cat.name))
+    shared = sorted(set(own.main_ingredients or []) & set(cat.main_ingredients or []))
+    status_word = "보관함에 있는" if own.status == "archived" else "이미 사용 중인"
+    if same:
+        banner = f"{status_word} 같은 제품이에요. 브랜드·제품명이 같아요. 남은 양({own.remaining_percent}%)과 지난 평가를 확인해 보세요."
+    elif shared:
+        banner = f"비슷한 제품을 가지고 있어요. {', '.join(shared)} 성분이 겹쳐요."
+    else:
+        banner = "겹치는 주요 성분이 없는 다른 제품이에요."
+
     own_serialized = serialize_owned_product(own, db)
     return {
         "screen_id": "BUY-02",
-        "banner": "같은 제품을 이미 사용 중이에요. 브랜드·제품명·용량이 같아요. 현재 남은 양과 지난 평가를 확인해 보세요.",
+        "is_same_product": same,
+        "shared_ingredients": shared,
+        "banner": banner,
         "candidate": {
-            "catalog_code": cat.code,
-            "brand": cat.brand,
-            "name": cat.name,
-            "category": cat.category,
-            "volume": cat.volume,
-            "main_ingredients": cat.main_ingredients,
-            "remaining_percent": "새 제품",
-            "deadline": "개봉일 등록 예정",
+            "catalog_code": cat.code, "brand": cat.brand, "name": cat.name, "category": cat.category,
+            "volume": cat.volume, "main_ingredients": cat.main_ingredients,
+            "remaining_percent": "새 제품", "deadline": "개봉일 등록 예정",
         },
         "owned": own_serialized,
         "disclaimer": "유사 성분은 피부 적합도 점수가 아니에요. 전체 성분·배합·사용 환경은 다를 수 있어요.",

@@ -498,6 +498,7 @@ def seed_initial_data(db: Session):
     notifications = [
         Notification(
             code="N-01",
+            dedupe_key="EXP:OWN-101:2026-11-12:30",
             user_id=user.id,
             category="사용 기한",
             title="수분 장벽 크림, 13일 남았어요",
@@ -509,6 +510,7 @@ def seed_initial_data(db: Session):
         ),
         Notification(
             code="N-02",
+            dedupe_key="EXP:OWN-104:2026-10-20:expired",
             user_id=user.id,
             category="사용 기한",
             title="소프트 립 틴트 기한이 지났어요",
@@ -520,6 +522,7 @@ def seed_initial_data(db: Session):
         ),
         Notification(
             code="N-03",
+            dedupe_key="SEA:2026:autumn",
             user_id=user.id,
             category="계절 안내",
             title="건조한 계절, 내 루틴을 살펴봐요",
@@ -531,6 +534,7 @@ def seed_initial_data(db: Session):
         ),
         Notification(
             code="N-04",
+            dedupe_key="EVAL:OWN-106",
             user_id=user.id,
             category="평가 기록",
             title="라이트 선크림은 어땠나요?",
@@ -623,4 +627,19 @@ def seed_initial_data(db: Session):
         ),
     ]
     db.add_all(comments)
+    db.commit()
+
+
+SEED_NOTIFICATION_KEYS = {
+    "N-01": "EXP:OWN-101:2026-11-12:30",
+    "N-02": "EXP:OWN-104:2026-10-20:expired",
+    "N-03": "SEA:2026:autumn",
+    "N-04": "EVAL:OWN-106",
+}
+
+
+def backfill_seed_notification_keys(db: Session) -> None:
+    """v1 에서 만든 DB: 시드 알림에 dedupe_key 가 없어 스케줄러가 같은 알림을 또 만드는 것을 방지"""
+    for n in db.query(Notification).filter(Notification.dedupe_key.is_(None), Notification.code.in_(SEED_NOTIFICATION_KEYS)).all():
+        n.dedupe_key = SEED_NOTIFICATION_KEYS[n.code]
     db.commit()
